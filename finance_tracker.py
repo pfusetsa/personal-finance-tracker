@@ -1,5 +1,5 @@
 import pandas as pd
-from reports import generate_category_report, generate_monthly_report
+from reports import generate_category_report, generate_monthly_report, generate_balance_report
 from data_handler import add_transaction, load_data
 
 def main_menu():
@@ -8,14 +8,15 @@ def main_menu():
     print("1. Add a new transaction")
     print("2. Generate a category report")
     print("3. Generate a monthly report")
-    print("4. Exit")
+    print("4. Generate a balance report")
+    print("5. Exit")
 
     while True:
         choice = input("Enter your choice: ")
-        if choice in ['1', '2', '3', '4']:
+        if choice in ['1', '2', '3', '4', '5']:
             return choice
         else:
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")
+            print("Invalid choice. Please enter 1, 2, 3, 4, or 5.")
 
 def main():
     """The main function of our program."""
@@ -30,6 +31,8 @@ def main():
         elif user_choice == '3':
             generate_monthly_report(df)
         elif user_choice == '4':
+            generate_balance_report(df)
+        elif user_choice == '5':
             print("Exiting program. Goodbye!")
             break
 

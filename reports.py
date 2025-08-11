@@ -45,3 +45,15 @@ def generate_monthly_report(df):
     print("\n--- Monthly Expense Report ---")
     print(monthly_summary.unstack(fill_value=0).to_string())
     print("------------------------------")
+
+def generate_balance_report(df):
+    """Generates and prints a report of the current total balance."""
+    if df.empty:
+        print("No transactions found to calculate balance.")
+        return
+
+    total_balance = df['Amount'].sum()
+
+    print("\n--- Current Balance Report ---")
+    print(f"Total Balance: {total_balance:,.2f}")
+    print("------------------------------")

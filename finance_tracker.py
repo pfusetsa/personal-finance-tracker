@@ -1,23 +1,24 @@
 import pandas as pd
 from data_handler import add_transaction, add_transfer, load_data
-from reports import generate_category_report, generate_monthly_report, generate_balance_report
+from reports import generate_category_report, generate_monthly_report, generate_balance_report, generate_account_evolution_report
 
 def main_menu():
     """Presents a menu to the user and gets their choice."""
-    print("\n--- Finanzas Personales ---")
+    print("\n--- Rastreador de Finanzas Personales ---")
     print("1. Añadir una nueva transacción")
     print("2. Añadir una nueva transferencia")
     print("3. Generar un informe de saldo total")
-    print("4. Generar un informe mensual")
-    print("5. Generar un informe por categoría")
-    print("6. Salir")
+    print("4. Generar un informe de evolución de cuentas")
+    print("5. Generar un informe mensual")
+    print("6. Generar un informe de categoría")
+    print("7. Salir")
 
     while True:
         choice = input("Introduce tu elección: ")
-        if choice in ['1', '2', '3', '4', '5', '6']:
+        if choice in ['1', '2', '3', '4', '5', '6', '7']:
             return choice
         else:
-            print("Entrada inválida. Por favor, introduce un número del 1 al 6.")
+            print("Entrada inválida. Por favor, introduce un número del 1 al 7.")
 
 def main():
     """The main function of our program."""
@@ -32,10 +33,12 @@ def main():
         elif user_choice == '3':
             generate_balance_report(df)
         elif user_choice == '4':
-            generate_monthly_report(df)
+            generate_account_evolution_report(df)
         elif user_choice == '5':
-            generate_category_report(df)
+            generate_monthly_report(df)
         elif user_choice == '6':
+            generate_category_report(df)
+        elif user_choice == '7':
             print("Saliendo del programa. ¡Adiós!")
             break
 

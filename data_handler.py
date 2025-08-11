@@ -40,7 +40,7 @@ def add_transaction():
         while True:
             recurrente = input("¿Es recurrente? ('Sí' o 'No'): ").lower()
             if recurrente in ['sí', 'no', 'si', 'no']:
-                recurrente = 'Sí' if recurrente == 'sí' or recurrente == 'si' else 'No'
+                recurrente = 'Sí' if recurrente in ['sí', 'si'] else 'No'
                 break
             print("Entrada inválida. Por favor, introduce 'Sí' o 'No'.")
 

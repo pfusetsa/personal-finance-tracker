@@ -1,6 +1,6 @@
 import pandas as pd
 from data_handler import add_transaction, add_transfer, load_data
-from reports import generate_category_report, generate_monthly_report, generate_balance_report, generate_account_evolution_report,generate_recurrence_report
+from reports import generate_category_report, generate_monthly_report, generate_balance_report, generate_account_evolution_report, generate_recurrence_report, generate_total_summary_report
 
 def main_menu():
     """Presents a menu to the user and gets their choice."""
@@ -11,15 +11,16 @@ def main_menu():
     print("4. Generar un informe de evolución de cuentas")
     print("5. Generar un informe mensual")
     print("6. Generar un informe de categoría")
-    print("7. Generar un informe de saldos recurrentes")
-    print("8. Salir")
+    print("7. Generar un informe de recurrencia")
+    print("8. Generar un informe de resumen total")
+    print("9. Salir")
 
     while True:
         choice = input("Introduce tu elección: ")
-        if choice in ['1', '2', '3', '4', '5', '6', '7', '8']:
+        if choice in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
             return choice
         else:
-            print("Entrada inválida. Por favor, introduce un número del 1 al 8.")
+            print("Entrada inválida. Por favor, introduce un número del 1 al 9.")
 
 def main():
     """The main function of our program."""
@@ -42,6 +43,8 @@ def main():
         elif user_choice == '7':
             generate_recurrence_report(df)
         elif user_choice == '8':
+            generate_total_summary_report(df)
+        elif user_choice == '9':
             print("Saliendo del programa. ¡Adiós!")
             break
 

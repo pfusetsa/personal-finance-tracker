@@ -70,7 +70,7 @@ def generate_balance_report(df):
     print("\n--- Informe de Saldo Actual ---")
     print(account_balances.to_string(header=False)) # Display balances per account
     print("-" * 28)
-    print(f"Saldo Total: {total_balance:,.2f}")
+    print(f"Saldo Total: {total_balance:,.2f}€")
     print("------------------------------")
 
 def generate_account_evolution_report(df):
@@ -115,15 +115,46 @@ def generate_account_evolution_report(df):
             
     except ValueError:
         print("Entrada de fecha inválida. Por favor, utiliza el formato YYYY-MM-DD.")
-
+        
 def generate_recurrence_report(df):
     """Generates a report comparing recurrent vs. non-recurrent expenses and incomes."""
     if df.empty:
         print("No hay datos para generar un informe de recurrencia.")
         return
-        
-    recurrent_summary = df.groupby('Recurrente')['Cantidad'].sum().abs()
     
-    print("\n--- Informe de Transacciones Recurrentes vs. No Recurrentes ---")
-    print(recurrent_summary.to_string())
-    print("-" * 55)
+    # Separate expenses and incomes
+    expenses_df = df[df['Cantidad'] < 0]
+    incomes_df = df[df['Cantidad'] > 0]
+    
+    # Summarize recurrent and non-recurrent expenses
+    recurrent_expenses = expenses_df[expenses_df['Recurrente'] == 'Sí']['Cantidad'].sum().abs()
+    non_recurrent_expenses = expenses_df[expenses_df['Recurrente'] == 'No']['Cantidad'].sum().abs()
+    
+    # Summarize recurrent and non-recurrent incomes
+    recurrent_incomes = incomes_df[incomes_df['Recurrente'] == 'Sí']['Cantidad'].sum()
+    non_recurrent_incomes = incomes_df[incomes_df['Recurrente'] == 'No']['Cantidad'].sum()
+    
+    print("\n--- Informe de Recurrencia ---")
+    print("Gastos:")
+    print(f"  Recurrentes: {recurrent_expenses:,.2f}€")
+    print(f"  No Recurrentes: {non_recurrent_expenses:,.2f}€")
+    print("\nIngresos:")
+    print(f"  Recurrentes: {recurrent_incomes:,.2f}€")
+    print(f"  No Recurrentes: {non_recurrent_incomes:,.2f}€")
+    print("------------------------------")
+    
+def generate_total_summary_report(df):
+    """Generates a report with total income, expenses, and net balance."""
+    if df.empty:
+        print("No hay datos para generar un informe de resumen total.")
+        return
+
+    total_income = df[df['Cantidad'] > 0]['Cantidad'].sum()
+    total_expenses = df[df['Cantidad'] < 0]['Cantidad'].sum().abs()
+    net_balance = total_income - total_expenses
+    
+    print("\n--- Informe de Resumen Total ---")
+    print(f"Ingresos Totales: {total_income:,.2f}€")
+    print(f"Gastos Totales: {total_expenses:,.2f}€")
+    print(f"Saldo Neto: {net_balance:,.2f}€")
+    print("---------------------------------")

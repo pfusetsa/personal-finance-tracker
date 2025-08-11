@@ -115,3 +115,15 @@ def generate_account_evolution_report(df):
             
     except ValueError:
         print("Entrada de fecha inválida. Por favor, utiliza el formato YYYY-MM-DD.")
+
+def generate_recurrence_report(df):
+    """Generates a report comparing recurrent vs. non-recurrent expenses and incomes."""
+    if df.empty:
+        print("No hay datos para generar un informe de recurrencia.")
+        return
+        
+    recurrent_summary = df.groupby('Recurrente')['Cantidad'].sum().abs()
+    
+    print("\n--- Informe de Transacciones Recurrentes vs. No Recurrentes ---")
+    print(recurrent_summary.to_string())
+    print("-" * 55)

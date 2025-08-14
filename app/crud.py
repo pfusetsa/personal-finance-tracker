@@ -23,6 +23,54 @@ def add_transaction(date, description, amount, is_recurrent, account_id, categor
     finally:
         conn.close()
 
+def add_transfer(date, description, amount, from_account_id, to_account_id):
+    """Adds a transfer, which consists of two transactions."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Find the 'Transferencias' category ID.
+        # In a real-world app, this might be handled more robustly.
+        transfer_category = cursor.execute(
+            "SELECT id FROM categories WHERE name = 'Transferencias'"
+        ).fetchone()
+
+        if not transfer_category:
+            print("❌ Error: 'Transferencias' category not found in the database.")
+            return
+
+        transfer_category_id = transfer_category['id']
+        
+        # We use a database transaction to ensure both operations succeed or fail together.
+        cursor.execute("BEGIN")
+        
+        # 1. The withdrawal
+        cursor.execute(
+            """
+            INSERT INTO transactions (date, description, amount, is_recurrent, account_id, category_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (date, f"To {description}", -abs(amount), False, from_account_id, transfer_category_id)
+        )
+        
+        # 2. The deposit
+        cursor.execute(
+            """
+            INSERT INTO transactions (date, description, amount, is_recurrent, account_id, category_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (date, f"From {description}", abs(amount), False, to_account_id, transfer_category_id)
+        )
+        
+        conn.commit()
+        print("Transfer recorded successfully. ✅")
+        
+    except Exception as e:
+        conn.rollback() # Roll back changes if any error occurs
+        print(f"❌ Error adding transfer: {e}")
+    finally:
+        conn.close()
+
+
 # --- Data Reading / Reporting Functions ---
 
 def get_accounts():
@@ -42,8 +90,6 @@ def get_categories():
 def get_balance_report():
     """Calculates and returns the balance for each account and the total balance."""
     conn = get_db_connection()
-    # This SQL query joins the transactions and accounts tables, groups by account name,
-    # and sums the amounts for each account.
     query = """
         SELECT
             a.name,
@@ -53,7 +99,6 @@ def get_balance_report():
         GROUP BY a.name
         ORDER BY a.name;
     """
-    # pandas is still great for reading query results into a nicely formatted table.
     df = pd.read_sql_query(query, conn)
     conn.close()
     
@@ -61,10 +106,7 @@ def get_balance_report():
     return df, total_balance
 
 def get_monthly_report_df():
-    """
-    Returns a pandas DataFrame of expenses per category per month.
-    This is a perfect example of how much heavy lifting the database can do for us.
-    """
+    """Returns a pandas DataFrame of expenses per category per month."""
     conn = get_db_connection()
     query = """
         SELECT
@@ -80,16 +122,12 @@ def get_monthly_report_df():
     df = pd.read_sql_query(query, conn)
     conn.close()
     
-    # We still use pandas here for its powerful `pivot` functionality to format the report.
     df['total_expenses'] = df['total_expenses'].abs()
     pivot_df = df.pivot(index='month', columns='category', values='total_expenses').fillna(0)
     return pivot_df
 
 def get_category_report_df(account_id=None):
-    """
-    Returns a DataFrame of expenses broken down by category.
-    Optionally filters for a specific account.
-    """
+    """Returns a DataFrame of expenses broken down by category."""
     conn = get_db_connection()
     
     base_query = """
@@ -105,9 +143,29 @@ def get_category_report_df(account_id=None):
         base_query += " AND t.account_id = ?"
         params.append(account_id)
         
-    base_query += " GROUP BY c.name ORDER BY total ASC" # ASC because expenses are negative
+    base_query += " GROUP BY c.name ORDER BY total ASC"
     
     df = pd.read_sql_query(base_query, conn, params=params)
-    df['total'] = df['total'].abs() # Make the final numbers positive for display
+    df['total'] = df['total'].abs()
+    conn.close()
+    return df
+
+def get_all_transactions_df(limit=50):
+    """Returns a DataFrame with the N most recent transactions."""
+    conn = get_db_connection()
+    query = """
+        SELECT
+            t.date,
+            t.description,
+            c.name as category,
+            a.name as account,
+            t.amount
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        JOIN accounts a ON t.account_id = a.id
+        ORDER BY t.date DESC, t.id DESC
+        LIMIT ?;
+    """
+    df = pd.read_sql_query(query, conn, params=[limit])
     conn.close()
     return df

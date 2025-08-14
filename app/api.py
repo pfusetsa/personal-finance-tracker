@@ -5,12 +5,13 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import date
 
+# --- THIS IS THE FIX ---
+# Import the CORS middleware
+from fastapi.middleware.cors import CORSMiddleware
+
 from . import crud
 
 # --- Pydantic Models for Request Data ---
-# These models define the structure and data types for incoming API requests.
-# FastAPI uses them to validate data automatically.
-
 class TransactionCreate(BaseModel):
     date: date
     description: str
@@ -31,6 +32,27 @@ app = FastAPI(
     description="API for managing personal finances, built with FastAPI.",
     version="1.0.0",
 )
+
+# --- THIS IS THE FIX ---
+# Configure CORS
+# We define a list of origins that are allowed to make requests to our API.
+# "*" means allow all origins, which is fine for local development.
+# "null" is important to allow requests from local files (file://).
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "http://127.0.0.1:8000",
+    "null", # Allow requests from local files
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"], # Allow all headers
+)
+
 
 # --- API Endpoints ---
 
@@ -70,16 +92,12 @@ def get_balance_report():
 def get_monthly_report():
     """Generates and returns the monthly expense report."""
     report_df = crud.get_monthly_report_df()
-    # Resetting index to make the 'month' column available in the JSON
     report_df = report_df.reset_index()
     return report_df.to_dict(orient="records")
 
 @app.get("/reports/category/")
 def get_category_report(account_id: Optional[int] = None):
-    """
-    Generates the category expense report.
-    Optionally filters by account_id.
-    """
+    """Generates the category expense report."""
     report_df = crud.get_category_report_df(account_id)
     return report_df.to_dict(orient="records")
 
@@ -87,10 +105,7 @@ def get_category_report(account_id: Optional[int] = None):
 
 @app.post("/transactions/")
 def create_transaction(transaction: TransactionCreate):
-    """
-    Creates a new transaction.
-    The request body must match the TransactionCreate model.
-    """
+    """Creates a new transaction."""
     try:
         crud.add_transaction(
             date=transaction.date,
@@ -106,10 +121,7 @@ def create_transaction(transaction: TransactionCreate):
 
 @app.post("/transfers/")
 def create_transfer(transfer: TransferCreate):
-    """
-    Creates a new transfer between accounts.
-    The request body must match the TransferCreate model.
-    """
+    """Creates a new transfer between accounts."""
     try:
         from_name = next(acc['name'] for acc in crud.get_accounts() if acc['id'] == transfer.from_account_id)
         to_name = next(acc['name'] for acc in crud.get_accounts() if acc['id'] == transfer.to_account_id)

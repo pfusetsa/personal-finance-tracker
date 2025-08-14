@@ -4,14 +4,12 @@ from .database import get_db_connection
 import pandas as pd
 import httpx
 import os
+import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
-# Load environment variables from the .env file in the project's root
 load_dotenv()
-
-# Securely get the API key from the environment
 API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={API_KEY}"
 
@@ -36,24 +34,43 @@ def get_db_schema():
     return schema_str
 
 async def call_gemini_api(prompt):
-    """Generic function to call the Gemini API."""
+    """
+    Generic function to call the Gemini API with retry logic for 503 errors.
+    """
     if not API_KEY:
         return "Error: GEMINI_API_KEY is not set in your .env file."
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
-        headers = {'Content-Type': 'application/json'}
-        
-        response = await client.post(GEMINI_API_URL, json=payload, headers=headers)
-        
-        if response.status_code == 200:
-            response_json = response.json()
+    max_retries = 3
+    base_delay = 1  # in seconds
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        for attempt in range(max_retries):
             try:
-                return response_json['candidates'][0]['content']['parts'][0]['text']
-            except (KeyError, IndexError):
-                return "Error: Could not parse Gemini API response."
-        else:
-            return f"Error: Failed to call Gemini API. Status: {response.status_code}, Response: {response.text}"
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                headers = {'Content-Type': 'application/json'}
+                
+                response = await client.post(GEMINI_API_URL, json=payload, headers=headers)
+                
+                if response.status_code == 503:
+                    print(f"⚠️ API is overloaded. Retrying in {base_delay * (2 ** attempt)}s... (Attempt {attempt + 1}/{max_retries})")
+                    await asyncio.sleep(base_delay * (2 ** attempt))
+                    continue
+
+                response.raise_for_status()
+
+                response_json = response.json()
+                try:
+                    return response_json['candidates'][0]['content']['parts'][0]['text']
+                except (KeyError, IndexError):
+                    return "Error: Could not parse Gemini API response."
+
+            except httpx.RequestError as e:
+                return f"Error: A network error occurred: {e}"
+            except Exception as e:
+                return f"An unexpected error occurred: {e}"
+        
+        return "Error: The AI model is currently unavailable after multiple retries. Please try again later."
+
 
 async def execute_natural_language_query(user_query: str) -> str:
     """
@@ -63,7 +80,6 @@ async def execute_natural_language_query(user_query: str) -> str:
     db_schema = get_db_schema()
     today = datetime.today().strftime('%Y-%m-%d')
 
-    # Step 1: Generate SQL from the natural language query
     sql_generation_prompt = f"""
     You are an expert SQLite database engineer. Based on the database schema below, write a single, precise SQL query to answer the user's question.
 
@@ -75,21 +91,22 @@ async def execute_natural_language_query(user_query: str) -> str:
 
     Important Rules:
     - Today's date is {today}.
-    - For questions about "this month" or "last month", use strftime functions with date('now'). For example, to get data for the current month, use: WHERE strftime('%Y-%m', date) = strftime('%Y-%m', 'now').
+    - "Income" or "earnings" refers to transactions where the 'amount' is greater than 0.
+    - "Spending" or "expenses" refers to transactions where the 'amount' is less than 0. When summing expenses, sum the absolute values to get a positive number.
+    - For questions about "this month" or "last month", use strftime functions with date('now').
     - Only output a single, valid SQLite query.
     - DO NOT include any explanations, comments, or markdown formatting like ```sql.
-    - If the question cannot be answered with the given schema, your only response should be the exact text: "I cannot answer this question."
+    - If the question cannot be answered, your only response should be the exact text: "I cannot answer this question."
     """
     
     generated_sql = await call_gemini_api(sql_generation_prompt)
-    generated_sql = generated_sql.strip().replace('`', '').replace('sql', '') # Clean up the response
+    generated_sql = generated_sql.strip().replace('`', '').replace('sql', '')
 
     print(f"🤖 AI Generated SQL: {generated_sql}")
 
     if "I cannot answer this question" in generated_sql or not generated_sql.upper().startswith("SELECT"):
         return "I'm sorry, I can't answer that question with the available data."
 
-    # Step 2: Execute the generated SQL query
     try:
         conn = get_db_connection()
         result_df = pd.read_sql_query(generated_sql, conn)
@@ -98,7 +115,6 @@ async def execute_natural_language_query(user_query: str) -> str:
     except Exception as e:
         return f"I tried to run a query, but it failed: {e}"
 
-    # Step 3: Format the result into a natural language response
     response_formatting_prompt = f"""
     You are a helpful financial assistant. Based on the user's original question and the data result from the database, provide a concise and friendly natural language answer.
 
@@ -107,7 +123,7 @@ async def execute_natural_language_query(user_query: str) -> str:
     {data_result}
 
     Important Rules:
-    - Always format currency results in Euros (€) using two decimal places (e.g., €1,234.56).
+    - CRITICAL: All financial amounts MUST be formatted in Euros. The currency symbol (€) must come AFTER the number with a space (e.g., 1,234.56 €).
 
     Answer:
     """

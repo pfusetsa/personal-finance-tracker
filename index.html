@@ -85,6 +85,54 @@
                 </div>
             );
         }
+        
+        function EditTransactionForm({ transaction, accounts, categories, onFormSubmit, onCancel }) {
+            const [formData, setFormData] = React.useState({
+                date: transaction.date,
+                description: transaction.description,
+                amount: transaction.amount,
+                is_recurrent: transaction.is_recurrent,
+                account_id: transaction.account_id,
+                category_id: transaction.category_id,
+            });
+
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                fetch(`${API_URL}/transactions/${transaction.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }),
+                })
+                .then(res => res.ok ? res.json() : Promise.reject('Failed to update transaction'))
+                .then(() => onFormSubmit('Transaction updated successfully!'))
+                .catch(err => console.error(err));
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+                    <div className="bg-white shadow rounded-lg p-6 w-full max-w-md">
+                        <h2 className="text-xl font-semibold mb-4 text-gray-700">Edit Transaction</h2>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" />
+                            <input type="text" name="description" placeholder="Description" value={formData.description} onChange={handleChange} className="w-full p-2 border rounded" required />
+                            <input type="number" name="amount" placeholder="Amount (e.g., -50.25)" value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required step="0.01" />
+                            <select name="account_id" value={formData.account_id} onChange={handleChange} className="w-full p-2 border rounded">{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>
+                            <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full p-2 border rounded">{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select>
+                            <label className="flex items-center space-x-2"><input type="checkbox" name="is_recurrent" checked={formData.is_recurrent} onChange={handleChange} /><span>Is Recurrent?</span></label>
+                            <div className="flex justify-end space-x-2">
+                                <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
 
         function AddTransferForm({ accounts, onFormSubmit, onCancel }) {
             const [formData, setFormData] = React.useState({
@@ -150,13 +198,64 @@
             );
         }
 
-        function TransactionList({ transactions, isLoading, error }) {
+        function TransactionList({ transactions, isLoading, error, onEdit, onDelete }) {
             if (isLoading) return <p>Loading transactions...</p>;
             if (error) return <p className="text-red-500">{error}</p>;
             return (
                 <div className="bg-white shadow rounded-lg p-6">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Recent Transactions</h2>
-                    <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th><th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{transactions.map((tx, index) => (<tr key={index}><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.date}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.description}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.category}</td><td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(tx.amount)}</td></tr>))}</tbody></table></div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {transactions.map((tx) => (
+                                    <tr key={tx.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.date}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.description}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.category}</td>
+                                        <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(tx.amount)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium space-x-2">
+                                            <button onClick={() => onEdit(tx)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                                            <button onClick={() => onDelete(tx.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+        
+        function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }) {
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            if (totalPages <= 1) return null;
+
+            return (
+                <div className="mt-4 flex items-center justify-between">
+                    <button 
+                        onClick={() => onPageChange(currentPage - 1)} 
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 bg-white border rounded-md disabled:opacity-50"
+                    >
+                        Previous
+                    </button>
+                    <span>Page {currentPage} of {totalPages}</span>
+                    <button 
+                        onClick={() => onPageChange(currentPage + 1)} 
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 bg-white border rounded-md disabled:opacity-50"
+                    >
+                        Next
+                    </button>
                 </div>
             );
         }
@@ -231,32 +330,72 @@
         // --- Main App Component ---
         function App() {
             const [balanceReport, setBalanceReport] = React.useState(null);
-            const [transactions, setTransactions] = React.useState([]);
+            const [transactionsData, setTransactionsData] = React.useState({ transactions: [], total_count: 0 });
             const [accounts, setAccounts] = React.useState([]);
             const [categories, setCategories] = React.useState([]);
             const [loading, setLoading] = React.useState({ balance: true, transactions: true, lookups: true });
             const [error, setError] = React.useState({ balance: null, transactions: null, lookups: null });
             const [activeForm, setActiveForm] = React.useState(null);
+            const [editingTransaction, setEditingTransaction] = React.useState(null);
             const [notification, setNotification] = React.useState(null);
             const [showChat, setShowChat] = React.useState(false);
+            const [currentPage, setCurrentPage] = React.useState(1);
+            const PAGE_SIZE = 10;
 
-            const fetchData = () => {
-                setLoading(prev => ({ ...prev, balance: true, transactions: true }));
-                fetch(`${API_URL}/reports/balance/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch balance')).then(data => setBalanceReport(data)).catch(err => setError(prev => ({ ...prev, balance: err.toString() }))).finally(() => setLoading(prev => ({ ...prev, balance: false })));
-                fetch(`${API_URL}/transactions/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch transactions')).then(data => setTransactions(data)).catch(err => setError(prev => ({ ...prev, transactions: err.toString() }))).finally(() => setLoading(prev => ({ ...prev, transactions: false })));
+            const fetchTransactions = (page) => {
+                setLoading(prev => ({ ...prev, transactions: true }));
+                fetch(`${API_URL}/transactions/?page=${page}&page_size=${PAGE_SIZE}`)
+                    .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch transactions'))
+                    .then(data => setTransactionsData(data))
+                    .catch(err => setError(prev => ({ ...prev, transactions: err.toString() })))
+                    .finally(() => setLoading(prev => ({ ...prev, transactions: false })));
+            };
+
+            const fetchBalance = () => {
+                setLoading(prev => ({ ...prev, balance: true }));
+                fetch(`${API_URL}/reports/balance/`)
+                    .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch balance'))
+                    .then(data => setBalanceReport(data))
+                    .catch(err => setError(prev => ({ ...prev, balance: err.toString() })))
+                    .finally(() => setLoading(prev => ({ ...prev, balance: false })));
             };
 
             React.useEffect(() => {
-                fetchData();
-                fetch(`${API_URL}/accounts/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch accounts')).then(data => setAccounts(data)).catch(err => setError(prev => ({ ...prev, lookups: err.toString() })));
-                fetch(`${API_URL}/categories/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch categories')).then(data => setCategories(data)).catch(err => setError(prev => ({ ...prev, lookups: err.toString() }))).finally(() => setLoading(prev => ({ ...prev, lookups: false })));
-            }, []);
+                fetchTransactions(currentPage);
+                fetchBalance();
+
+                // Fetch lookups only once
+                fetch(`${API_URL}/accounts/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch accounts')).then(data => setAccounts(data));
+                fetch(`${API_URL}/categories/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch categories')).then(data => setCategories(data));
+            }, [currentPage]);
             
+            const showNotification = (message, type = 'success') => {
+                setNotification({ message, type });
+                setTimeout(() => setNotification(null), 3000);
+            };
+
             const handleFormSubmit = (message) => {
                 setActiveForm(null);
-                fetchData();
-                setNotification({ message, type: 'success' });
-                setTimeout(() => setNotification(null), 3000);
+                setEditingTransaction(null);
+                fetchTransactions(currentPage);
+                fetchBalance();
+                showNotification(message);
+            };
+
+            const handleDelete = (transactionId) => {
+                if (window.confirm("Are you sure you want to delete this transaction?")) {
+                    fetch(`${API_URL}/transactions/${transactionId}`, { method: 'DELETE' })
+                        .then(res => {
+                            if (res.ok) {
+                                showNotification('Transaction deleted successfully!');
+                                fetchTransactions(currentPage);
+                                fetchBalance();
+                            } else {
+                                Promise.reject('Failed to delete');
+                            }
+                        })
+                        .catch(err => showNotification('Failed to delete transaction.', 'error'));
+                }
             };
 
             return (
@@ -273,6 +412,7 @@
                     
                     {activeForm === 'transaction' && <AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleFormSubmit} onCancel={() => setActiveForm(null)} />}
                     {activeForm === 'transfer' && <AddTransferForm accounts={accounts} onFormSubmit={handleFormSubmit} onCancel={() => setActiveForm(null)} />}
+                    {editingTransaction && <EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleFormSubmit} onCancel={() => setEditingTransaction(null)} />}
                     {showChat && <Chat onCancel={() => setShowChat(false)} />}
 
                     <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -280,7 +420,19 @@
                             <BalanceReport report={balanceReport} isLoading={loading.balance} error={error.balance} />
                         </div>
                         <div className="lg:col-span-2">
-                           <TransactionList transactions={transactions} isLoading={loading.transactions} error={error.transactions} />
+                           <TransactionList 
+                                transactions={transactionsData.transactions}
+                                isLoading={loading.transactions}
+                                error={error.transactions}
+                                onEdit={setEditingTransaction}
+                                onDelete={handleDelete}
+                           />
+                           <Pagination 
+                                currentPage={currentPage}
+                                totalItems={transactionsData.total_count}
+                                itemsPerPage={PAGE_SIZE}
+                                onPageChange={setCurrentPage}
+                           />
                         </div>
                     </main>
                 </div>

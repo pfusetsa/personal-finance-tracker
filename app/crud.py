@@ -131,7 +131,8 @@ async def execute_natural_language_query(user_query: str) -> str:
     final_answer = await call_gemini_api(response_formatting_prompt)
     return final_answer
 
-# --- The rest of the file remains the same ---
+# --- C.R.U.D. Functions ---
+
 def add_transaction(date, description, amount, is_recurrent, account_id, category_id):
     conn = get_db_connection()
     try:
@@ -153,6 +154,39 @@ def add_transfer(date, description, amount, from_account_id, to_account_id):
         conn.commit()
     except Exception as e:
         conn.rollback()
+    finally:
+        conn.close()
+
+def update_transaction(transaction_id, date, description, amount, is_recurrent, account_id, category_id):
+    """Updates an existing transaction in the database."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            UPDATE transactions
+            SET date = ?, description = ?, amount = ?, is_recurrent = ?, account_id = ?, category_id = ?
+            WHERE id = ?
+            """,
+            (date, description, amount, is_recurrent, account_id, category_id, transaction_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ Error updating transaction: {e}")
+        return False
+    finally:
+        conn.close()
+
+def delete_transaction(transaction_id):
+    """Deletes a transaction from the database by its ID."""
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ Error deleting transaction: {e}")
+        return False
     finally:
         conn.close()
 
@@ -194,8 +228,35 @@ def get_category_report_df(account_id=None):
     conn.close()
     return df
 
-def get_all_transactions_df(limit=50):
+def get_all_transactions(page=1, page_size=10):
+    """Returns a paginated DataFrame of transactions, including their IDs and total count."""
     conn = get_db_connection()
-    df = pd.read_sql_query("SELECT t.date, t.description, c.name as category, a.name as account, t.amount FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id ORDER BY t.date DESC, t.id DESC LIMIT ?;", conn, params=[limit])
+    
+    # Calculate offset for pagination
+    offset = (page - 1) * page_size
+    
+    query = """
+        SELECT
+            t.id, 
+            t.date,
+            t.description,
+            c.name as category,
+            a.name as account,
+            t.amount,
+            t.account_id,
+            t.category_id,
+            t.is_recurrent
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        JOIN accounts a ON t.account_id = a.id
+        ORDER BY t.date DESC, t.id DESC
+        LIMIT ? OFFSET ?;
+    """
+    df = pd.read_sql_query(query, conn, params=[page_size, offset])
+    
+    # Get total number of transactions for pagination controls
+    total_count = conn.execute("SELECT COUNT(id) FROM transactions").fetchone()[0]
+    
     conn.close()
-    return df
+    
+    return df, total_count

@@ -1,6 +1,6 @@
 # app/api.py
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date
@@ -34,7 +34,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-origins = ["http://localhost", "http://localhost:8080", "[http://127.0.0.1:8000](http://127.0.0.1:8000)", "null"]
+origins = ["http://localhost", "http://localhost:8080", "http://127.0.0.1:8000", "null"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -57,9 +57,14 @@ def get_all_categories():
     return crud.get_categories()
 
 @app.get("/transactions/")
-def get_all_transactions(limit: int = 50):
-    transactions_df = crud.get_all_transactions_df(limit)
-    return transactions_df.to_dict(orient="records")
+def get_all_transactions(page: int = 1, page_size: int = 10):
+    transactions_df, total_count = crud.get_all_transactions(page, page_size)
+    return {
+        "transactions": transactions_df.to_dict(orient="records"),
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size
+    }
 
 @app.get("/reports/balance/")
 def get_balance_report():
@@ -85,6 +90,31 @@ def create_transaction(transaction: TransactionCreate):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.put("/transactions/{transaction_id}")
+def update_transaction(transaction_id: int, transaction: TransactionCreate):
+    """Updates an existing transaction."""
+    success = crud.update_transaction(
+        transaction_id=transaction_id,
+        date=transaction.date,
+        description=transaction.description,
+        amount=transaction.amount,
+        is_recurrent=transaction.is_recurrent,
+        account_id=transaction.account_id,
+        category_id=transaction.category_id
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Transaction not found or could not be updated.")
+    return {"status": "success", "message": "Transaction updated."}
+
+@app.delete("/transactions/{transaction_id}", status_code=204)
+def delete_transaction(transaction_id: int):
+    """Deletes a transaction."""
+    success = crud.delete_transaction(transaction_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Transaction not found.")
+    return Response(status_code=204)
+
+
 @app.post("/transfers/")
 def create_transfer(transfer: TransferCreate):
     try:
@@ -96,7 +126,6 @@ def create_transfer(transfer: TransferCreate):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# --- AI Chat Endpoint (Now async) ---
 @app.post("/chat/")
 async def handle_chat(query: ChatQuery):
     """

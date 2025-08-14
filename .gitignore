@@ -1,5 +1,5 @@
-# Ignore Python virtual environment folders
-venv/
+# Ignore the local environment file
+.env
 
-# Ignore system-specific files
-.DS_Store
+# Ignore Python's cache files
+__pycache__/

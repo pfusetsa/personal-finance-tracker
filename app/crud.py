@@ -5,12 +5,14 @@ import pandas as pd
 import httpx
 import os
 from datetime import datetime
+from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
-# IMPORTANT: Paste your Gemini API key here.
-# Get your key from Google AI Studio: https://aistudio.google.com/app/apikey
-API_KEY = "AIzaSyBrnlFINF9bgirLa0G5m48-c09FMVJfSXc" 
-# Updated to the latest recommended model name
+# Load environment variables from the .env file in the project's root
+load_dotenv()
+
+# Securely get the API key from the environment
+API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={API_KEY}"
 
 def get_db_schema():
@@ -35,8 +37,8 @@ def get_db_schema():
 
 async def call_gemini_api(prompt):
     """Generic function to call the Gemini API."""
-    if not API_KEY or "PASTE_YOUR" in API_KEY:
-        return "Error: API_KEY is not set in crud.py."
+    if not API_KEY:
+        return "Error: GEMINI_API_KEY is not set in your .env file."
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         payload = {"contents": [{"parts": [{"text": prompt}]}]}

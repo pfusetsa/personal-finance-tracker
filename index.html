@@ -24,29 +24,125 @@
         }
 
         // --- Child Components ---
-        function BalanceReport({ report, isLoading, error }) {
-            if (isLoading) return <p>Loading balance...</p>;
-            if (error) return <p className="text-red-500">{error}</p>;
 
+        function Notification({ message, type }) {
+            if (!message) return null;
+            const baseClasses = "fixed top-5 right-5 p-4 rounded-lg shadow-lg text-white z-50 transition-opacity duration-300";
+            const typeClasses = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+            
+            return (
+                <div className={`${baseClasses} ${typeClasses}`}>
+                    {message}
+                </div>
+            );
+        }
+
+        function AddTransactionForm({ accounts, categories, onFormSubmit, onCancel }) {
+            const [formData, setFormData] = React.useState({
+                date: new Date().toISOString().split('T')[0],
+                description: '',
+                amount: '',
+                is_recurrent: false,
+                account_id: accounts[0]?.id || '',
+                category_id: categories[0]?.id || '',
+            });
+
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                fetch(`${API_URL}/transactions/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }),
+                })
+                .then(res => res.ok ? res.json() : Promise.reject('Failed to add transaction'))
+                .then(() => onFormSubmit('Transaction added successfully!'))
+                .catch(err => console.error(err));
+            };
+
+            return (
+                <div className="bg-white shadow rounded-lg p-6 mb-8">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Add Transaction</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" />
+                        <input type="text" name="description" placeholder="Description" value={formData.description} onChange={handleChange} className="w-full p-2 border rounded" required />
+                        <input type="number" name="amount" placeholder="Amount (e.g., -50.25)" value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required step="0.01" />
+                        <select name="account_id" value={formData.account_id} onChange={handleChange} className="w-full p-2 border rounded">{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>
+                        <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full p-2 border rounded">{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select>
+                        <label className="flex items-center space-x-2"><input type="checkbox" name="is_recurrent" checked={formData.is_recurrent} onChange={handleChange} /><span>Is Recurrent?</span></label>
+                        <div className="flex justify-end space-x-2">
+                            <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add</button>
+                        </div>
+                    </form>
+                </div>
+            );
+        }
+
+        function AddTransferForm({ accounts, onFormSubmit, onCancel }) {
+            const [formData, setFormData] = React.useState({
+                date: new Date().toISOString().split('T')[0],
+                amount: '',
+                from_account_id: accounts[0]?.id || '',
+                to_account_id: accounts[1]?.id || '',
+            });
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (formData.from_account_id === formData.to_account_id) {
+                    alert("Cannot transfer to the same account.");
+                    return;
+                }
+                fetch(`${API_URL}/transfers/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }),
+                })
+                .then(res => res.ok ? res.json() : Promise.reject('Failed to add transfer'))
+                .then(() => onFormSubmit('Transfer added successfully!'))
+                .catch(err => console.error(err));
+            };
+
+            return (
+                <div className="bg-white shadow rounded-lg p-6 mb-8">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Add Transfer</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" />
+                        <input type="number" name="amount" placeholder="Amount" value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required step="0.01" />
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">From Account</label>
+                            <select name="from_account_id" value={formData.from_account_id} onChange={handleChange} className="w-full p-2 border rounded">{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">To Account</label>
+                            <select name="to_account_id" value={formData.to_account_id} onChange={handleChange} className="w-full p-2 border rounded">{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                            <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add</button>
+                        </div>
+                    </form>
+                </div>
+            );
+        }
+        
+        function BalanceReport({ report, isLoading, error }) {
+            if (isLoading || !report) return <p>Loading balance...</p>;
+            if (error) return <p className="text-red-500">{error}</p>;
             return (
                 <div className="bg-white shadow rounded-lg p-6">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Balance Report</h2>
-                    <ul className="space-y-2 mb-4">
-                        {report.balances_by_account.map(account => (
-                            <li key={account.name} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
-                                <span className="font-medium text-gray-600">{account.name}</span>
-                                <span className={`font-semibold ${account.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {formatCurrency(account.balance)}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                    <div className="border-t pt-4 flex justify-between items-center">
-                        <span className="text-lg font-bold text-gray-800">Total Balance</span>
-                        <span className={`text-lg font-bold ${report.total_balance >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                            {formatCurrency(report.total_balance)}
-                        </span>
-                    </div>
+                    <ul className="space-y-2 mb-4">{report.balances_by_account.map(account => (<li key={account.name} className="flex justify-between items-center p-3 bg-gray-50 rounded-md"><span className="font-medium text-gray-600">{account.name}</span><span className={`font-semibold ${account.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(account.balance)}</span></li>))}</ul>
+                    <div className="border-t pt-4 flex justify-between items-center"><span className="text-lg font-bold text-gray-800">Total Balance</span><span className={`text-lg font-bold ${report.total_balance >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(report.total_balance)}</span></div>
                 </div>
             );
         }
@@ -54,33 +150,65 @@
         function TransactionList({ transactions, isLoading, error }) {
             if (isLoading) return <p>Loading transactions...</p>;
             if (error) return <p className="text-red-500">{error}</p>;
-
             return (
                 <div className="bg-white shadow rounded-lg p-6">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Recent Transactions</h2>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {transactions.map((tx, index) => (
-                                    <tr key={index}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.date}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.description}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.category}</td>
-                                        <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {formatCurrency(tx.amount)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th><th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{transactions.map((tx, index) => (<tr key={index}><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.date}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.description}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.category}</td><td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(tx.amount)}</td></tr>))}</tbody></table></div>
+                </div>
+            );
+        }
+
+        function Chat({ onCancel }) {
+            const [messages, setMessages] = React.useState([]);
+            const [input, setInput] = React.useState('');
+            const [isLoading, setIsLoading] = React.useState(false);
+
+            const handleSend = () => {
+                if (!input.trim()) return;
+                const newMessages = [...messages, { text: input, sender: 'user' }];
+                setMessages(newMessages);
+                setInput('');
+                setIsLoading(true);
+
+                fetch(`${API_URL}/chat/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: input }),
+                })
+                .then(res => res.ok ? res.json() : Promise.reject('Failed to get response'))
+                .then(data => {
+                    setMessages([...newMessages, { text: data.response, sender: 'ai' }]);
+                })
+                .catch(err => {
+                    setMessages([...newMessages, { text: 'Sorry, I had trouble getting a response.', sender: 'ai' }]);
+                })
+                .finally(() => setIsLoading(false));
+            };
+
+            return (
+                <div className="fixed bottom-5 right-5 w-96 bg-white shadow-2xl rounded-lg flex flex-col">
+                    <div className="p-4 border-b flex justify-between items-center">
+                        <h2 className="text-lg font-semibold">AI Assistant</h2>
+                        <button onClick={onCancel} className="text-gray-500 hover:text-gray-800">&times;</button>
+                    </div>
+                    <div className="flex-1 p-4 overflow-y-auto h-80">
+                        {messages.map((msg, index) => (
+                            <div key={index} className={`my-2 p-2 rounded-lg ${msg.sender === 'user' ? 'bg-blue-100 text-right' : 'bg-gray-100'}`}>
+                                {msg.text}
+                            </div>
+                        ))}
+                        {isLoading && <div className="text-center">AI is thinking...</div>}
+                    </div>
+                    <div className="p-4 border-t flex">
+                        <input 
+                            type="text" 
+                            value={input} 
+                            onChange={e => setInput(e.target.value)}
+                            onKeyPress={e => e.key === 'Enter' && handleSend()}
+                            className="flex-1 p-2 border rounded-l-lg"
+                            placeholder="Ask about your finances..."
+                        />
+                        <button onClick={handleSend} className="px-4 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700">Send</button>
                     </div>
                 </div>
             );
@@ -90,45 +218,55 @@
         function App() {
             const [balanceReport, setBalanceReport] = React.useState(null);
             const [transactions, setTransactions] = React.useState([]);
-            const [loading, setLoading] = React.useState({ balance: true, transactions: true });
-            const [error, setError] = React.useState({ balance: null, transactions: null });
+            const [accounts, setAccounts] = React.useState([]);
+            const [categories, setCategories] = React.useState([]);
+            const [loading, setLoading] = React.useState({ balance: true, transactions: true, lookups: true });
+            const [error, setError] = React.useState({ balance: null, transactions: null, lookups: null });
+            const [activeForm, setActiveForm] = React.useState(null);
+            const [notification, setNotification] = React.useState(null);
+            const [showChat, setShowChat] = React.useState(false);
+
+            const fetchData = () => {
+                setLoading(prev => ({ ...prev, balance: true, transactions: true }));
+                fetch(`${API_URL}/reports/balance/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch balance')).then(data => setBalanceReport(data)).catch(err => setError(prev => ({ ...prev, balance: err.toString() }))).finally(() => setLoading(prev => ({ ...prev, balance: false })));
+                fetch(`${API_URL}/transactions/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch transactions')).then(data => setTransactions(data)).catch(err => setError(prev => ({ ...prev, transactions: err.toString() }))).finally(() => setLoading(prev => ({ ...prev, transactions: false })));
+            };
 
             React.useEffect(() => {
-                // Fetch balance report
-                fetch(`${API_URL}/reports/balance/`)
-                    .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch balance'))
-                    .then(data => setBalanceReport(data))
-                    .catch(err => setError(prev => ({ ...prev, balance: err.toString() })))
-                    .finally(() => setLoading(prev => ({ ...prev, balance: false })));
-
-                // Fetch transactions
-                fetch(`${API_URL}/transactions/`)
-                    .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch transactions'))
-                    .then(data => setTransactions(data))
-                    .catch(err => setError(prev => ({ ...prev, transactions: err.toString() })))
-                    .finally(() => setLoading(prev => ({ ...prev, transactions: false })));
+                fetchData();
+                fetch(`${API_URL}/accounts/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch accounts')).then(data => setAccounts(data)).catch(err => setError(prev => ({ ...prev, lookups: err.toString() })));
+                fetch(`${API_URL}/categories/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch categories')).then(data => setCategories(data)).catch(err => setError(prev => ({ ...prev, lookups: err.toString() }))).finally(() => setLoading(prev => ({ ...prev, lookups: false })));
             }, []);
+            
+            const handleFormSubmit = (message) => {
+                setActiveForm(null);
+                fetchData();
+                setNotification({ message, type: 'success' });
+                setTimeout(() => setNotification(null), 3000);
+            };
 
             return (
                 <div className="container mx-auto p-4 md:p-8">
-                    <header className="bg-white shadow-md rounded-lg p-6 mb-8">
+                    <Notification message={notification?.message} type={notification?.type} />
+                    <header className="bg-white shadow-md rounded-lg p-6 mb-8 flex justify-between items-center">
                         <h1 className="text-4xl font-bold text-gray-800 tracking-tight">Finance Dashboard</h1>
+                        <div className="space-x-2">
+                            <button onClick={() => setActiveForm('transaction')} className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700">Add Transaction</button>
+                            <button onClick={() => setActiveForm('transfer')} className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700">Add Transfer</button>
+                            <button onClick={() => setShowChat(true)} className="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700">AI Chat</button>
+                        </div>
                     </header>
                     
+                    {activeForm === 'transaction' && <AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleFormSubmit} onCancel={() => setActiveForm(null)} />}
+                    {activeForm === 'transfer' && <AddTransferForm accounts={accounts} onFormSubmit={handleFormSubmit} onCancel={() => setActiveForm(null)} />}
+                    {showChat && <Chat onCancel={() => setShowChat(false)} />}
+
                     <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-1">
-                            <BalanceReport 
-                                report={balanceReport} 
-                                isLoading={loading.balance} 
-                                error={error.balance} 
-                            />
+                            <BalanceReport report={balanceReport} isLoading={loading.balance} error={error.balance} />
                         </div>
                         <div className="lg:col-span-2">
-                           <TransactionList 
-                                transactions={transactions}
-                                isLoading={loading.transactions}
-                                error={error.transactions}
-                           />
+                           <TransactionList transactions={transactions} isLoading={loading.transactions} error={error.transactions} />
                         </div>
                     </main>
                 </div>

@@ -29,7 +29,6 @@ def add_transfer(date, description, amount, from_account_id, to_account_id):
     cursor = conn.cursor()
     try:
         # Find the 'Transferencias' category ID.
-        # In a real-world app, this might be handled more robustly.
         transfer_category = cursor.execute(
             "SELECT id FROM categories WHERE name = 'Transferencias'"
         ).fetchone()
@@ -74,16 +73,18 @@ def add_transfer(date, description, amount, from_account_id, to_account_id):
 # --- Data Reading / Reporting Functions ---
 
 def get_accounts():
-    """Returns a list of all accounts."""
+    """Returns a list of all accounts, ordered by their ID."""
     conn = get_db_connection()
-    accounts = conn.execute("SELECT id, name FROM accounts ORDER BY name").fetchall()
+    # --- THIS IS THE CHANGE ---
+    accounts = conn.execute("SELECT id, name FROM accounts ORDER BY id").fetchall()
     conn.close()
     return accounts
 
 def get_categories():
-    """Returns a list of all categories."""
+    """Returns a list of all categories, ordered by their ID."""
     conn = get_db_connection()
-    categories = conn.execute("SELECT id, name FROM categories ORDER BY name").fetchall()
+    # --- THIS IS THE CHANGE ---
+    categories = conn.execute("SELECT id, name FROM categories ORDER BY id").fetchall()
     conn.close()
     return categories
 
@@ -97,7 +98,7 @@ def get_balance_report():
         FROM transactions t
         JOIN accounts a ON t.account_id = a.id
         GROUP BY a.name
-        ORDER BY a.name;
+        ORDER BY a.id;
     """
     df = pd.read_sql_query(query, conn)
     conn.close()
@@ -106,7 +107,9 @@ def get_balance_report():
     return df, total_balance
 
 def get_monthly_report_df():
-    """Returns a pandas DataFrame of expenses per category per month."""
+    """
+    Returns a pandas DataFrame of expenses per category per month.
+    """
     conn = get_db_connection()
     query = """
         SELECT
@@ -127,7 +130,10 @@ def get_monthly_report_df():
     return pivot_df
 
 def get_category_report_df(account_id=None):
-    """Returns a DataFrame of expenses broken down by category."""
+    """
+    Returns a DataFrame of expenses broken down by category.
+    Optionally filters for a specific account.
+    """
     conn = get_db_connection()
     
     base_query = """

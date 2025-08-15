@@ -82,6 +82,12 @@ def get_category_report(account_id: Optional[int] = None):
     report_df = crud.get_category_report_df(account_id)
     return report_df.to_dict(orient="records")
 
+@app.get("/reports/category-summary/")
+def get_category_summary_for_chart(period: str = 'month'):
+    """Endpoint to get data formatted for the doughnut chart."""
+    report_df = crud.get_category_summary_for_chart(period)
+    return report_df.to_dict(orient="records")
+
 @app.post("/transactions/")
 def create_transaction(transaction: TransactionCreate):
     try:

@@ -14,6 +14,8 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel to compile JSX in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-100 font-sans">
     <div id="root"></div>
@@ -222,9 +224,18 @@
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.description}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.category}</td>
                                         <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(tx.amount)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium space-x-2">
-                                            <button onClick={() => onEdit(tx)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
-                                            <button onClick={() => onDelete(tx.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium space-x-4">
+                                            <button onClick={() => onEdit(tx)} className="text-indigo-600 hover:text-indigo-900" title="Edit">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                                                    <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
+                                            <button onClick={() => onDelete(tx.id)} className="text-red-600 hover:text-red-900" title="Delete">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -327,6 +338,86 @@
             );
         }
 
+        function CategoryChart({ refreshTrigger }) {
+            const [chartData, setChartData] = React.useState(null);
+            const [isLoading, setIsLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
+            const [period, setPeriod] = React.useState('month');
+            const chartRef = React.useRef(null);
+            const chartInstance = React.useRef(null);
+
+            React.useEffect(() => {
+                setIsLoading(true);
+                fetch(`${API_URL}/reports/category-summary/?period=${period}`)
+                    .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch chart data'))
+                    .then(data => setChartData(data))
+                    .catch(err => setError(err.toString()))
+                    .finally(() => setIsLoading(false));
+            }, [period, refreshTrigger]);
+
+            React.useEffect(() => {
+                if (chartData && chartRef.current) {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                    const ctx = chartRef.current.getContext('2d');
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: chartData.map(d => d.category),
+                            datasets: [{
+                                data: chartData.map(d => d.total),
+                                backgroundColor: [
+                                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+                                    '#C9CBCF', '#7BC225', '#FF6347', '#20B2AA', '#DA70D6', '#FFD700'
+                                ],
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                },
+                            }
+                        }
+                    });
+                }
+            }, [chartData]);
+
+            const timePeriods = [
+                { key: 'week', label: '7 Days' },
+                { key: 'month', label: '30 Days' },
+                { key: 'year', label: 'Year' },
+                { key: 'all', label: 'All Time' },
+            ];
+
+            return (
+                <div className="bg-white shadow rounded-lg p-6 h-full">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold text-gray-700">Expenses by Category</h2>
+                        <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
+                            {timePeriods.map(p => (
+                                <button 
+                                    key={p.key}
+                                    onClick={() => setPeriod(p.key)}
+                                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${period === p.key ? 'bg-white shadow text-gray-800' : 'text-gray-600 hover:bg-gray-300'}`}
+                                >
+                                    {p.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="relative h-64">
+                        {isLoading && <p>Loading chart...</p>}
+                        {error && <p className="text-red-500">{error}</p>}
+                        <canvas ref={chartRef}></canvas>
+                    </div>
+                </div>
+            );
+        }
+
         // --- Main App Component ---
         function App() {
             const [balanceReport, setBalanceReport] = React.useState(null);
@@ -340,6 +431,7 @@
             const [notification, setNotification] = React.useState(null);
             const [showChat, setShowChat] = React.useState(false);
             const [currentPage, setCurrentPage] = React.useState(1);
+            const [refreshTrigger, setRefreshTrigger] = React.useState(0);
             const PAGE_SIZE = 10;
 
             const fetchTransactions = (page) => {
@@ -359,26 +451,27 @@
                     .catch(err => setError(prev => ({ ...prev, balance: err.toString() })))
                     .finally(() => setLoading(prev => ({ ...prev, balance: false })));
             };
-
+            
             React.useEffect(() => {
                 fetchTransactions(currentPage);
+            }, [currentPage, refreshTrigger]);
+            
+            React.useEffect(() => {
                 fetchBalance();
-
                 // Fetch lookups only once
                 fetch(`${API_URL}/accounts/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch accounts')).then(data => setAccounts(data));
                 fetch(`${API_URL}/categories/`).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch categories')).then(data => setCategories(data));
-            }, [currentPage]);
+            }, [refreshTrigger]);
             
             const showNotification = (message, type = 'success') => {
                 setNotification({ message, type });
                 setTimeout(() => setNotification(null), 3000);
             };
 
-            const handleFormSubmit = (message) => {
+            const handleDataUpdate = (message) => {
                 setActiveForm(null);
                 setEditingTransaction(null);
-                fetchTransactions(currentPage);
-                fetchBalance();
+                setRefreshTrigger(c => c + 1); // Trigger a full data refresh
                 showNotification(message);
             };
 
@@ -387,9 +480,7 @@
                     fetch(`${API_URL}/transactions/${transactionId}`, { method: 'DELETE' })
                         .then(res => {
                             if (res.ok) {
-                                showNotification('Transaction deleted successfully!');
-                                fetchTransactions(currentPage);
-                                fetchBalance();
+                                handleDataUpdate('Transaction deleted successfully!');
                             } else {
                                 Promise.reject('Failed to delete');
                             }
@@ -410,14 +501,19 @@
                         </div>
                     </header>
                     
-                    {activeForm === 'transaction' && <AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleFormSubmit} onCancel={() => setActiveForm(null)} />}
-                    {activeForm === 'transfer' && <AddTransferForm accounts={accounts} onFormSubmit={handleFormSubmit} onCancel={() => setActiveForm(null)} />}
-                    {editingTransaction && <EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleFormSubmit} onCancel={() => setEditingTransaction(null)} />}
+                    {activeForm === 'transaction' && <AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleDataUpdate} onCancel={() => setActiveForm(null)} />}
+                    {activeForm === 'transfer' && <AddTransferForm accounts={accounts} onFormSubmit={handleDataUpdate} onCancel={() => setActiveForm(null)} />}
+                    {editingTransaction && <EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleDataUpdate} onCancel={() => setEditingTransaction(null)} />}
                     {showChat && <Chat onCancel={() => setShowChat(false)} />}
 
                     <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-1">
-                            <BalanceReport report={balanceReport} isLoading={loading.balance} error={error.balance} />
+                        <div className="lg:col-span-1 space-y-8">
+                            <BalanceReport 
+                                report={balanceReport} 
+                                isLoading={loading.balance} 
+                                error={error.balance} 
+                            />
+                            <CategoryChart refreshTrigger={refreshTrigger} />
                         </div>
                         <div className="lg:col-span-2">
                            <TransactionList 

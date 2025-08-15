@@ -231,32 +231,37 @@ def get_category_report_df(account_id=None):
 def get_all_transactions(page=1, page_size=10):
     """Returns a paginated DataFrame of transactions, including their IDs and total count."""
     conn = get_db_connection()
-    
-    # Calculate offset for pagination
     offset = (page - 1) * page_size
+    query = "SELECT t.id, t.date, t.description, c.name as category, a.name as account, t.amount, t.account_id, t.category_id, t.is_recurrent FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?;"
+    df = pd.read_sql_query(query, conn, params=[page_size, offset])
+    total_count = conn.execute("SELECT COUNT(id) FROM transactions").fetchone()[0]
+    conn.close()
+    return df, total_count
+
+def get_category_summary_for_chart(period: str = 'month'):
+    """Calculates total expenses per category for a given period."""
+    conn = get_db_connection()
     
-    query = """
+    where_clause = ""
+    if period == 'week':
+        where_clause = "AND t.date >= date('now', '-7 days')"
+    elif period == 'month':
+        where_clause = "AND t.date >= date('now', '-30 days')"
+    elif period == 'year':
+        where_clause = "AND t.date >= date('now', '-365 days')"
+    # 'all' will have no date filter, so the where_clause remains empty
+
+    query = f"""
         SELECT
-            t.id, 
-            t.date,
-            t.description,
             c.name as category,
-            a.name as account,
-            t.amount,
-            t.account_id,
-            t.category_id,
-            t.is_recurrent
+            SUM(ABS(t.amount)) as total
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
-        JOIN accounts a ON t.account_id = a.id
-        ORDER BY t.date DESC, t.id DESC
-        LIMIT ? OFFSET ?;
+        WHERE t.amount < 0 {where_clause}
+        GROUP BY c.name
+        HAVING total > 0
+        ORDER BY total DESC;
     """
-    df = pd.read_sql_query(query, conn, params=[page_size, offset])
-    
-    # Get total number of transactions for pagination controls
-    total_count = conn.execute("SELECT COUNT(id) FROM transactions").fetchone()[0]
-    
+    df = pd.read_sql_query(query, conn)
     conn.close()
-    
-    return df, total_count
+    return df

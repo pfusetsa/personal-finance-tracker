@@ -238,18 +238,15 @@ def get_all_transactions(page=1, page_size=10):
     conn.close()
     return df, total_count
 
-def get_category_summary_for_chart(period: str = 'month'):
-    """Calculates total expenses per category for a given period."""
+def get_category_summary_for_chart(start_date: str, end_date: str, transaction_type: str = 'expense'):
+    """Calculates total amounts per category for a given period and transaction type."""
     conn = get_db_connection()
     
-    where_clause = ""
-    if period == 'week':
-        where_clause = "AND t.date >= date('now', '-7 days')"
-    elif period == 'month':
-        where_clause = "AND t.date >= date('now', '-30 days')"
-    elif period == 'year':
-        where_clause = "AND t.date >= date('now', '-365 days')"
-    # 'all' will have no date filter, so the where_clause remains empty
+    type_filter = "t.amount < 0" # Default to expenses
+    if transaction_type == 'income':
+        type_filter = "t.amount > 0"
+    elif transaction_type == 'both':
+        type_filter = "c.name != 'Transferencias'"
 
     query = f"""
         SELECT
@@ -257,11 +254,48 @@ def get_category_summary_for_chart(period: str = 'month'):
             SUM(ABS(t.amount)) as total
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
-        WHERE t.amount < 0 {where_clause}
+        WHERE {type_filter} AND t.date BETWEEN ? AND ?
         GROUP BY c.name
         HAVING total > 0
         ORDER BY total DESC;
     """
-    df = pd.read_sql_query(query, conn)
+    df = pd.read_sql_query(query, conn, params=[start_date, end_date])
+    conn.close()
+    return df
+
+def get_monthly_income_expense_summary(start_date: str, end_date: str):
+    """Calculates total income and expenses per month for a given date range."""
+    conn = get_db_connection()
+    
+    query = """
+        SELECT
+            strftime('%Y-%m', date) as month,
+            SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income,
+            SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expenses
+        FROM transactions
+        WHERE date BETWEEN ? AND ?
+        GROUP BY month
+        ORDER BY month;
+    """
+    df = pd.read_sql_query(query, conn, params=[start_date, end_date])
+    conn.close()
+    return df
+
+def get_recurrent_summary(start_date: str, end_date: str):
+    """Calculates total recurrent income and expenses per category for a given date range."""
+    conn = get_db_connection()
+    query = """
+        SELECT
+            c.name as category,
+            SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as income,
+            SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as expenses
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.is_recurrent = 1 AND t.date BETWEEN ? AND ?
+        GROUP BY c.name
+        HAVING income > 0 OR expenses > 0
+        ORDER BY expenses DESC, income DESC;
+    """
+    df = pd.read_sql_query(query, conn, params=[start_date, end_date])
     conn.close()
     return df

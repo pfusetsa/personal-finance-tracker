@@ -83,9 +83,21 @@ def get_category_report(account_id: Optional[int] = None):
     return report_df.to_dict(orient="records")
 
 @app.get("/reports/category-summary/")
-def get_category_summary_for_chart(period: str = 'month'):
+def get_category_summary_for_chart(start_date: date, end_date: date, transaction_type: str = 'expense'):
     """Endpoint to get data formatted for the doughnut chart."""
-    report_df = crud.get_category_summary_for_chart(period)
+    report_df = crud.get_category_summary_for_chart(str(start_date), str(end_date), transaction_type)
+    return report_df.to_dict(orient="records")
+
+@app.get("/reports/monthly-income-expense-summary/")
+def get_monthly_income_expense_summary(start_date: date, end_date: date):
+    """Endpoint to get data for the monthly income vs. expense bar chart."""
+    report_df = crud.get_monthly_income_expense_summary(str(start_date), str(end_date))
+    return report_df.to_dict(orient="records")
+
+@app.get("/reports/recurrent-summary/")
+def get_recurrent_summary(start_date: date, end_date: date):
+    """Endpoint to get data for the recurrent transactions chart."""
+    report_df = crud.get_recurrent_summary(str(start_date), str(end_date))
     return report_df.to_dict(orient="records")
 
 @app.post("/transactions/")

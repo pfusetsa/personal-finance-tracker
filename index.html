@@ -85,7 +85,7 @@
                         <input type="text" name="description" placeholder="Description" value={formData.description} onChange={handleChange} className="w-full p-2 border rounded" required />
                         <input type="number" name="amount" placeholder="Amount (e.g., -50.25)" value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required step="0.01" />
                         <select name="account_id" value={formData.account_id} onChange={handleChange} className="w-full p-2 border rounded">{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>
-                        <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full p-2 border rounded">{categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}</select>
+                        <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full p-2 border rounded">{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select>
                         <label className="flex items-center space-x-2"><input type="checkbox" name="is_recurrent" checked={formData.is_recurrent} onChange={handleChange} /><span>Is Recurrent?</span></label>
                         <div className="flex justify-end space-x-2">
                             <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
@@ -366,18 +366,38 @@
             const [chartData, setChartData] = React.useState(null);
             const [isLoading, setIsLoading] = React.useState(true);
             const [error, setError] = React.useState(null);
-            const [period, setPeriod] = React.useState('month');
+            const [period, setPeriod] = React.useState('6m');
+            const [type, setType] = React.useState('expense');
+            const [customDates, setCustomDates] = React.useState({ start: '', end: '' });
             const chartRef = React.useRef(null);
             const chartInstance = React.useRef(null);
 
             React.useEffect(() => {
+                let startDate, endDate = new Date().toISOString().split('T')[0];
+                if (period === '6m') {
+                    const d = new Date();
+                    d.setMonth(d.getMonth() - 6);
+                    startDate = d.toISOString().split('T')[0];
+                } else if (period === '1y') {
+                    const d = new Date();
+                    d.setFullYear(d.getFullYear() - 1);
+                    startDate = d.toISOString().split('T')[0];
+                } else if (period === 'all') {
+                    startDate = '1970-01-01';
+                } else if (period === 'custom' && customDates.start && customDates.end) {
+                    startDate = customDates.start;
+                    endDate = customDates.end;
+                } else {
+                    return;
+                }
+
                 setIsLoading(true);
-                fetch(`${API_URL}/reports/category-summary/?period=${period}`)
+                fetch(`${API_URL}/reports/category-summary/?start_date=${startDate}&end_date=${endDate}&transaction_type=${type}`)
                     .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch chart data'))
                     .then(data => setChartData(data))
                     .catch(err => setError(err.toString()))
                     .finally(() => setIsLoading(false));
-            }, [period, refreshTrigger]);
+            }, [period, type, customDates, refreshTrigger]);
 
             React.useEffect(() => {
                 if (chartData && chartRef.current) {
@@ -403,7 +423,37 @@
                             plugins: {
                                 legend: {
                                     position: 'right',
+                                    labels: {
+                                        generateLabels: function(chart) {
+                                            const data = chart.data;
+                                            if (data.labels.length && data.datasets.length) {
+                                                return data.labels.map((label, i) => {
+                                                    const meta = chart.getDatasetMeta(0);
+                                                    const ds = data.datasets[0];
+                                                    const arc = meta.data[i];
+                                                    const fill = ds.backgroundColor[i];
+                                                    const text = `${label}: ${formatCurrency(ds.data[i])}`;
+                                                    return { text, fillStyle: fill, hidden: isNaN(ds.data[i]) || meta.hidden, index: i };
+                                                });
+                                            }
+                                            return [];
+                                        }
+                                    }
                                 },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            if (context.parsed !== null) {
+                                                label += formatCurrency(context.parsed);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
                             }
                         }
                     });
@@ -411,16 +461,152 @@
             }, [chartData]);
 
             const timePeriods = [
-                { key: 'week', label: '7 Days' },
-                { key: 'month', label: '30 Days' },
-                { key: 'year', label: 'Year' },
+                { key: '6m', label: '6 Months' },
+                { key: '1y', label: '1 Year' },
                 { key: 'all', label: 'All Time' },
+                { key: 'custom', label: 'Custom' },
+            ];
+
+            const transactionTypes = [
+                { key: 'expense', label: 'Expenses' },
+                { key: 'income', label: 'Income' },
+                { key: 'both', label: 'Both' },
             ];
 
             return (
                 <div className="bg-white shadow rounded-lg p-6 h-full">
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold text-gray-700">Expenses by Category</h2>
+                        <h2 className="text-xl font-semibold text-gray-700">Summary by Category</h2>
+                        <div className="flex items-center space-x-2">
+                            <select value={type} onChange={e => setType(e.target.value)} className="p-1 border rounded-md text-sm">
+                                {transactionTypes.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                            </select>
+                            <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
+                                {timePeriods.map(p => (
+                                    <button 
+                                        key={p.key}
+                                        onClick={() => setPeriod(p.key)}
+                                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${period === p.key ? 'bg-white shadow text-gray-800' : 'text-gray-600 hover:bg-gray-300'}`}
+                                    >
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    {period === 'custom' && (
+                        <div className="flex space-x-2 mb-4">
+                            <input type="date" value={customDates.start} onChange={e => setCustomDates(d => ({...d, start: e.target.value}))} className="p-1 border rounded" />
+                            <input type="date" value={customDates.end} onChange={e => setCustomDates(d => ({...d, end: e.target.value}))} className="p-1 border rounded" />
+                        </div>
+                    )}
+                    <div className="relative h-64">
+                        {isLoading && <p>Loading chart...</p>}
+                        {error && <p className="text-red-500">{error}</p>}
+                        <canvas ref={chartRef}></canvas>
+                    </div>
+                </div>
+            );
+        }
+
+        function IncomeExpenseChart({ refreshTrigger }) {
+            const [chartData, setChartData] = React.useState(null);
+            const [isLoading, setIsLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
+            const [period, setPeriod] = React.useState('6m');
+            const [customDates, setCustomDates] = React.useState({ start: '', end: '' });
+            const chartRef = React.useRef(null);
+            const chartInstance = React.useRef(null);
+
+            React.useEffect(() => {
+                let startDate, endDate = new Date().toISOString().split('T')[0];
+                if (period === '6m') {
+                    const d = new Date();
+                    d.setMonth(d.getMonth() - 6);
+                    startDate = d.toISOString().split('T')[0];
+                } else if (period === '1y') {
+                    const d = new Date();
+                    d.setFullYear(d.getFullYear() - 1);
+                    startDate = d.toISOString().split('T')[0];
+                } else if (period === 'all') {
+                    startDate = '1970-01-01'; // A long time ago
+                } else if (period === 'custom' && customDates.start && customDates.end) {
+                    startDate = customDates.start;
+                    endDate = customDates.end;
+                } else {
+                    return; // Don't fetch if custom is selected but dates are not set
+                }
+
+                setIsLoading(true);
+                fetch(`${API_URL}/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`)
+                    .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch chart data'))
+                    .then(data => setChartData(data))
+                    .catch(err => setError(err.toString()))
+                    .finally(() => setIsLoading(false));
+            }, [period, customDates, refreshTrigger]);
+
+            React.useEffect(() => {
+                if (chartData && chartRef.current) {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                    const ctx = chartRef.current.getContext('2d');
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: chartData.map(d => d.month),
+                            datasets: [
+                                {
+                                    label: 'Income',
+                                    data: chartData.map(d => d.income),
+                                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                                },
+                                {
+                                    label: 'Expenses',
+                                    data: chartData.map(d => d.expenses),
+                                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { stacked: false },
+                                y: { stacked: false, beginAtZero: true }
+                            },
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            if (context.parsed.y !== null) {
+                                                label += formatCurrency(context.parsed.y);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, [chartData]);
+
+            const timePeriods = [
+                { key: '6m', label: '6 Months' },
+                { key: '1y', label: '1 Year' },
+                { key: 'all', label: 'All Time' },
+                { key: 'custom', label: 'Custom' },
+            ];
+
+            return (
+                <div className="bg-white shadow rounded-lg p-6 h-full">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold text-gray-700">Income vs. Expenses</h2>
                         <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
                             {timePeriods.map(p => (
                                 <button 
@@ -433,6 +619,137 @@
                             ))}
                         </div>
                     </div>
+                    {period === 'custom' && (
+                        <div className="flex space-x-2 mb-4">
+                            <input type="date" value={customDates.start} onChange={e => setCustomDates(d => ({...d, start: e.target.value}))} className="p-1 border rounded" />
+                            <input type="date" value={customDates.end} onChange={e => setCustomDates(d => ({...d, end: e.target.value}))} className="p-1 border rounded" />
+                        </div>
+                    )}
+                    <div className="relative h-64">
+                        {isLoading && <p>Loading chart...</p>}
+                        {error && <p className="text-red-500">{error}</p>}
+                        <canvas ref={chartRef}></canvas>
+                    </div>
+                </div>
+            );
+        }
+        
+        function RecurrentChart({ refreshTrigger }) {
+            const [chartData, setChartData] = React.useState(null);
+            const [isLoading, setIsLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
+            const [period, setPeriod] = React.useState('6m');
+            const [customDates, setCustomDates] = React.useState({ start: '', end: '' });
+            const chartRef = React.useRef(null);
+            const chartInstance = React.useRef(null);
+
+            React.useEffect(() => {
+                let startDate, endDate = new Date().toISOString().split('T')[0];
+                if (period === '6m') {
+                    const d = new Date();
+                    d.setMonth(d.getMonth() - 6);
+                    startDate = d.toISOString().split('T')[0];
+                } else if (period === '1y') {
+                    const d = new Date();
+                    d.setFullYear(d.getFullYear() - 1);
+                    startDate = d.toISOString().split('T')[0];
+                } else if (period === 'all') {
+                    startDate = '1970-01-01';
+                } else if (period === 'custom' && customDates.start && customDates.end) {
+                    startDate = customDates.start;
+                    endDate = customDates.end;
+                } else {
+                    return;
+                }
+
+                setIsLoading(true);
+                fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`)
+                    .then(res => res.ok ? res.json() : Promise.reject('Failed to fetch chart data'))
+                    .then(data => setChartData(data))
+                    .catch(err => setError(err.toString()))
+                    .finally(() => setIsLoading(false));
+            }, [period, customDates, refreshTrigger]);
+
+            React.useEffect(() => {
+                if (chartData && chartRef.current) {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                    const ctx = chartRef.current.getContext('2d');
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: chartData.map(d => d.category),
+                            datasets: [
+                                {
+                                    label: 'Income',
+                                    data: chartData.map(d => d.income),
+                                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                                },
+                                {
+                                    label: 'Expenses',
+                                    data: chartData.map(d => d.expenses),
+                                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { stacked: true },
+                                y: { stacked: true, beginAtZero: true }
+                            },
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            if (context.parsed.y !== null) {
+                                                label += formatCurrency(context.parsed.y);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, [chartData]);
+
+            const timePeriods = [
+                { key: '6m', label: '6 Months' },
+                { key: '1y', label: '1 Year' },
+                { key: 'all', label: 'All Time' },
+                { key: 'custom', label: 'Custom' },
+            ];
+
+            return (
+                <div className="bg-white shadow rounded-lg p-6 h-full">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold text-gray-700">Recurrent Transactions</h2>
+                        <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
+                            {timePeriods.map(p => (
+                                <button 
+                                    key={p.key}
+                                    onClick={() => setPeriod(p.key)}
+                                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${period === p.key ? 'bg-white shadow text-gray-800' : 'text-gray-600 hover:bg-gray-300'}`}
+                                >
+                                    {p.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    {period === 'custom' && (
+                        <div className="flex space-x-2 mb-4">
+                            <input type="date" value={customDates.start} onChange={e => setCustomDates(d => ({...d, start: e.target.value}))} className="p-1 border rounded" />
+                            <input type="date" value={customDates.end} onChange={e => setCustomDates(d => ({...d, end: e.target.value}))} className="p-1 border rounded" />
+                        </div>
+                    )}
                     <div className="relative h-64">
                         {isLoading && <p>Loading chart...</p>}
                         {error && <p className="text-red-500">{error}</p>}
@@ -547,17 +864,29 @@
 
                     <main>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                            <BalanceReport 
-                                report={balanceReport} 
-                                isLoading={loading.balance} 
-                                error={error.balance} 
-                            />
+                            <div className="lg:col-span-1 space-y-8">
+                                <BalanceReport 
+                                    report={balanceReport} 
+                                    isLoading={loading.balance} 
+                                    error={error.balance} 
+                                />
+                            </div>
                             <div className="lg:col-span-2">
+                                <IncomeExpenseChart refreshTrigger={refreshTrigger} />
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                            <div className="lg:col-span-3">
                                 <CategoryChart refreshTrigger={refreshTrigger} />
                             </div>
                         </div>
 
                         <div className="lg:col-span-3">
+                           <RecurrentChart refreshTrigger={refreshTrigger} />
+                        </div>
+
+                        <div className="lg:col-span-3 mt-8">
                            <TransactionList 
                                 transactions={transactionsData.transactions}
                                 isLoading={loading.transactions}

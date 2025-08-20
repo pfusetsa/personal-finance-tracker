@@ -37,7 +37,7 @@ function Chat({ apiUrl, onCancel }) {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 w-96 bg-white shadow-2xl rounded-lg flex flex-col max-h-[70vh]">
+    <div className="fixed bottom-5 right-5 w-96 bg-white shadow-2xl rounded-lg flex flex-col max-h-[70vh] z-50">
       <div className="p-4 border-b flex justify-between items-center flex-shrink-0">
         <h2 className="text-lg font-semibold">AI Assistant</h2>
         <button onClick={onCancel} className="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>

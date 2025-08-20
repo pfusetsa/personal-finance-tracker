@@ -2,15 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import Chart from 'chart.js/auto';
 import { formatCurrency } from '../utils.js';
 
-function IncomeExpenseChart({ data, isLoading, error, t }) {
+function IncomeExpenseChart({ title, data, t }) {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
 
   useEffect(() => {
     if (data && chartRef.current) {
-      if (chartInstance.current) {
-        chartInstance.current.destroy();
-      }
+      if (chartInstance.current) chartInstance.current.destroy();
       const ctx = chartRef.current.getContext('2d');
       chartInstance.current = new Chart(ctx, {
         type: 'bar',
@@ -32,10 +30,9 @@ function IncomeExpenseChart({ data, isLoading, error, t }) {
 
   return (
     <div className="bg-white shadow rounded-lg p-6 h-full">
-      <h2 className="text-xl font-semibold text-gray-700 mb-4">{t.incomeVsExpenses}</h2>
+      <h2 className="text-xl font-semibold text-gray-700 mb-4">{title}</h2>
       <div className="relative h-64">
-        {isLoading && <p>Loading chart...</p>}
-        {error && <p className="text-red-500">{error}</p>}
+        {!data && <p>Loading chart...</p>}
         <canvas ref={chartRef}></canvas>
       </div>
     </div>

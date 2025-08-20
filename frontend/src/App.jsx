@@ -14,7 +14,8 @@ import LanguageSelector from './components/LanguageSelector.jsx';
 import IncomeExpenseChart from './components/IncomeExpenseChart.jsx';
 import CategoryChart from './components/CategoryChart.jsx';
 import RecurrentChart from './components/RecurrentChart.jsx';
-import FloatingActionButton from './components/FloatingActionButton.jsx'; // Import the new component
+import FloatingActionButton from './components/FloatingActionButton.jsx';
+import Logo from './components/Logo.jsx';
 
 // Constants and translations...
 const API_URL = "http://127.0.0.1:8000";
@@ -87,7 +88,7 @@ function App() {
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <svg className="h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 8l3 5m0 0l3-5m-3 5v4m0 0H9m3 0h3m-3-5a2 2 0 100-4 2 2 0 000 4z" /><path strokeLinecap="round" strokeLinejoin="round" d="M5 12a7 7 0 1114 0 7 7 0 01-14 0z" /></svg>
+              <Logo />
               <h1 className="text-4xl font-bold text-gray-800 tracking-tight">{t.financeTracker}</h1>
             </div>
             <LanguageSelector language={language} setLanguage={setLanguage} />

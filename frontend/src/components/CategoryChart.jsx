@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import Chart from 'chart.js/auto';
-import { formatCurrency } from '../utils.js';
+import { formatMoney } from '../utils.js'; // FIX: Use formatMoney
 
 function CategoryChart({ title, data, t }) {
   const chartRef = useRef(null);
@@ -23,7 +23,8 @@ function CategoryChart({ title, data, t }) {
           responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { position: 'right' },
-            tooltip: { callbacks: { label: (context) => `${context.label}: ${formatCurrency(context.parsed)}` } }
+            // FIX: Use formatMoney in the tooltip
+            tooltip: { callbacks: { label: (context) => `${context.label}: ${formatMoney(context.parsed)}` } }
           }
         }
       });

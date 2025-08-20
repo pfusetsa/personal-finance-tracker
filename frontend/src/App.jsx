@@ -48,14 +48,33 @@ function App() {
   const [categorySummaryData, setCategorySummaryData] = useState(null);
   const [recurrentData, setRecurrentData] = useState(null);
 
-  // Data fetching hooks remain the same for transactions and balance...
-  useEffect(() => { /* ... existing useEffect for transactions ... */
-    const fetchTransactions = (page) => { fetch(`${API_URL}/transactions/?page=${page}&page_size=${PAGE_SIZE}`).then(res => res.json()).then(data => setTransactionsData(data))};
+  // Data fetching hooks remain the same for transactions and balance
+  useEffect(() => {
+    const fetchTransactions = (page) => {
+      fetch(`${API_URL}/transactions/?page=${page}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' })
+        .then(res => res.json())
+        .then(data => setTransactionsData(data));
+    };
     fetchTransactions(currentPage);
   }, [currentPage, refreshTrigger]);
-  useEffect(() => { /* ... existing useEffect for balance and lookups ... */
-    const fetchBalance = () => { fetch(`${API_URL}/reports/balance/`).then(res => res.json()).then(data => setBalanceReport(data))};
-    const fetchLookups = () => { fetch(`${API_URL}/accounts/`).then(res => res.json()).then(data => setAccounts(data)); fetch(`${API_URL}/categories/`).then(res => res.json()).then(data => { setCategories(data); const colorMap = {}; data.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; }); setCategoryColorMap(colorMap); }); };
+
+  useEffect(() => {
+    const fetchBalance = () => {
+      fetch(`${API_URL}/reports/balance/`, { cache: 'no-cache' })
+        .then(res => res.json())
+        .then(data => setBalanceReport(data));
+    };
+    const fetchLookups = () => {
+      fetch(`${API_URL}/accounts/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setAccounts(data));
+      fetch(`${API_URL}/categories/`, { cache: 'no-cache' }).then(res => res.json()).then(data => {
+        setCategories(data);
+        const colorMap = {};
+        data.forEach((cat, index) => {
+          colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length];
+        });
+        setCategoryColorMap(colorMap);
+      });
+    };
     fetchBalance();
     fetchLookups();
   }, [refreshTrigger]);
@@ -76,8 +95,38 @@ function App() {
 
   // All handler functions remain the same...
   const handleDataUpdate = (message) => { setActiveForm(null); setEditingTransaction(null); setRefreshTrigger(c => c + 1); setNotification({ message, type: 'success' }); setTimeout(() => setNotification(null), 3000); };
-  const handleAddTransaction = (formData) => { fetch(`${API_URL}/transactions/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(() => handleDataUpdate('Transaction added!')) };
-  const handleUpdateTransaction = (transactionId, formData) => { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(() => handleDataUpdate('Transaction updated!')) };
+  const handleAddTransaction = (formData) => {
+    fetch(`${API_URL}/transactions/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) })
+    })
+    .then(res => {
+      if (!res.ok) { throw new Error('Network response was not ok'); }
+      return res.json();
+    })
+    .then(() => handleDataUpdate('Transaction added!'))
+    .catch(error => {
+      console.error('Failed to add transaction:', error);
+      showNotification('Failed to add transaction.', 'error');
+    });
+  };
+  const handleUpdateTransaction = (transactionId, formData) => {
+    fetch(`${API_URL}/transactions/${transactionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) })
+    })
+    .then(res => {
+      if (!res.ok) { throw new Error('Network response was not ok'); }
+      return res.json();
+    })
+    .then(() => handleDataUpdate('Transaction updated!'))
+    .catch(error => {
+      console.error('Failed to update transaction:', error);
+      showNotification('Failed to update transaction.', 'error');
+    });
+  };
   const handleAddTransfer = (formData) => { fetch(`${API_URL}/transfers/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }) }).then(() => handleDataUpdate('Transfer added!')) };
   const handleDelete = (transactionId) => { if (window.confirm("Are you sure?")) { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'DELETE' }).then(res => res.ok && handleDataUpdate('Transaction deleted!')) } };
 

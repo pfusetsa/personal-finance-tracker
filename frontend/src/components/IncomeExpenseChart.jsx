@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import Chart from 'chart.js/auto';
-import { formatCurrency } from '../utils.js';
+import { formatMoney } from '../utils.js'; // FIX: Use formatMoney
 
 function IncomeExpenseChart({ title, data, t }) {
   const chartRef = useRef(null);
@@ -22,7 +22,8 @@ function IncomeExpenseChart({ title, data, t }) {
         options: {
           responsive: true, maintainAspectRatio: false,
           scales: { x: { stacked: false }, y: { stacked: false, beginAtZero: true } },
-          plugins: { tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}` } } }
+          // FIX: Use formatMoney in the tooltip
+          plugins: { tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatMoney(context.parsed.y)}` } } }
         }
       });
     }

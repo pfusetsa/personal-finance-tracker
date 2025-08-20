@@ -13,10 +13,10 @@ class TransactionCreate(BaseModel):
     date: date
     description: str
     amount: float
+    currency: str
     is_recurrent: bool
     account_id: int
-    category_id: int # Keep for updates, but use category_name for creation
-    category_name: Optional[str] = None
+    category_id: int
 
 class TransferCreate(BaseModel):
     date: date
@@ -63,18 +63,14 @@ def get_all_transactions(page: int = 1, page_size: int = 10):
 @app.post("/transactions/")
 def create_transaction(transaction: TransactionCreate):
     try:
-        # We need the category name to find the ID in crud
-        category = next((cat for cat in crud.get_categories() if cat['id'] == transaction.category_id), None)
-        if not category:
-            raise HTTPException(status_code=400, detail="Invalid category ID")
-
         crud.add_transaction(
             date=transaction.date,
             description=transaction.description,
             amount=transaction.amount,
+            currency=transaction.currency,
             is_recurrent=transaction.is_recurrent,
             account_id=transaction.account_id,
-            category_name=category['name']
+            category_id=transaction.category_id
         )
         return {"status": "success", "message": "Transaction created."}
     except Exception as e:
@@ -82,12 +78,15 @@ def create_transaction(transaction: TransactionCreate):
 
 @app.put("/transactions/{transaction_id}")
 def update_transaction(transaction_id: int, transaction: TransactionCreate):
-    crud.update_transaction(
-        transaction_id=transaction_id, date=transaction.date, description=transaction.description,
-        amount=transaction.amount, is_recurrent=transaction.is_recurrent,
-        account_id=transaction.account_id, category_id=transaction.category_id
-    )
-    return {"status": "success", "message": "Transaction updated."}
+    try:
+        crud.update_transaction(
+            transaction_id=transaction_id, date=transaction.date, description=transaction.description,
+            amount=transaction.amount, currency=transaction.currency, is_recurrent=transaction.is_recurrent,
+            account_id=transaction.account_id, category_id=transaction.category_id
+        )
+        return {"status": "success", "message": "Transaction updated."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.delete("/transactions/{transaction_id}", status_code=204)
 def delete_transaction(transaction_id: int):

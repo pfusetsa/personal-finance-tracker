@@ -1,9 +1,8 @@
 import React from 'react';
-import { formatCurrency } from '../utils.js';
+import { formatMoney } from '../utils.js'; // Use formatMoney instead of formatCurrency
 
-function BalanceReport({ report, isLoading, error, t }) {
-  if (isLoading || !report) return <p>Loading balance...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+function BalanceReport({ report, t }) {
+  if (!report) return <p>Loading balance...</p>;
 
   return (
     <div className="bg-white shadow rounded-lg p-6">
@@ -11,7 +10,7 @@ function BalanceReport({ report, isLoading, error, t }) {
       <div className="mb-4 pb-4 border-b">
         <p className="text-sm text-gray-500">{t.totalBalance}</p>
         <p className={`text-3xl font-bold ${report.total_balance >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-          {formatCurrency(report.total_balance)}
+          {formatMoney(report.total_balance)}
         </p>
       </div>
       <ul className="space-y-2">
@@ -19,7 +18,7 @@ function BalanceReport({ report, isLoading, error, t }) {
           <li key={account.name} className="flex justify-between items-center p-2">
             <span className="font-medium text-gray-600">{account.name}</span>
             <span className={`font-semibold ${account.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {formatCurrency(account.balance)}
+              {formatMoney(account.balance)}
             </span>
           </li>
         ))}

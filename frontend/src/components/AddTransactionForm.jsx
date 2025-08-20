@@ -5,6 +5,7 @@ function AddTransactionForm({ accounts, categories, onFormSubmit, onCancel, lang
     date: new Date().toISOString().split('T')[0],
     description: '',
     amount: '',
+    currency: 'EUR', // Add this
     is_recurrent: false,
     account_id: accounts[0]?.id || '',
     category_id: categories[0]?.id || '',
@@ -26,7 +27,14 @@ function AddTransactionForm({ accounts, categories, onFormSubmit, onCancel, lang
       <form onSubmit={handleSubmit} className="space-y-4">
         <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" />
         <input type="text" name="description" placeholder={lang === 'es' ? 'Descripción' : 'Description'} value={formData.description} onChange={handleChange} className="w-full p-2 border rounded" required />
-        <input type="number" name="amount" placeholder={lang === 'es' ? 'Cantidad (ej. -50.25)' : 'Amount (e.g., -50.25)'} value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required step="0.01" />
+        <div className="flex space-x-2">
+          <input type="number" name="amount" placeholder={lang === 'es' ? 'Cantidad' : 'Amount'} value={formData.amount} onChange={handleChange} className="w-2/3 p-2 border rounded" required step="0.01" />
+          <select name="currency" value={formData.currency} onChange={handleChange} className="w-1/3 p-2 border rounded">
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </div>
         <select name="account_id" value={formData.account_id} onChange={handleChange} className="w-full p-2 border rounded">{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>
         <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full p-2 border rounded">{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select>
         <label className="flex items-center space-x-2"><input type="checkbox" name="is_recurrent" checked={formData.is_recurrent} onChange={handleChange} /><span>{lang === 'es' ? '¿Es Recurrente?' : 'Is Recurrent?'}</span></label>

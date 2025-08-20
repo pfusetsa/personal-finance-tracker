@@ -1,5 +1,8 @@
-export function formatCurrency(amount) {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
+export function formatMoney(amount, currency = 'EUR') {
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: currency,
+  }).format(amount);
 }
 
 export const categoryColorPalette = [

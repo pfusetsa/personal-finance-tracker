@@ -17,7 +17,8 @@ import CategoryChart from './components/CategoryChart.jsx';
 import RecurrentChart from './components/RecurrentChart.jsx';
 import FloatingActionButton from './components/FloatingActionButton.jsx';
 import ChartCard from './components/ChartCard.jsx';
-import BalanceEvolutionChart from './components/BalanceEvolutionChart.jsx'; // Import the new chart
+import BalanceEvolutionChart from './components/BalanceEvolutionChart.jsx';
+import Modal from './components/Modal.jsx';
 
 // Constants and translations...
 const API_URL = "http://127.0.0.1:8000";
@@ -84,48 +85,42 @@ function App() {
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Notification message={notification?.message} type={notification?.type} />
-      <header> {/* ... header ... */ }
+      <header>
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
           <div className="flex justify-between items-center"><div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-gray-800 tracking-tight">{t.financeTracker}</h1></div><LanguageSelector language={language} setLanguage={setLanguage} /></div>
         </div>
       </header>
-      
-      {/* Forms and Modals */}
-      {activeForm === 'transaction' && <AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} lang={language} />}
-      {activeForm === 'transfer' && <AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} lang={language} />}
-      {editingTransaction && <EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} lang={language} />}
+
+      {/* Forms and Modals now use the Modal component */}
+      {activeForm === 'transaction' && (
+        <Modal title={t.addTransaction} onClose={() => setActiveForm(null)}>
+          <AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} lang={language} />
+        </Modal>
+      )}
+      {activeForm === 'transfer' && (
+        <Modal title={t.addTransfer} onClose={() => setActiveForm(null)}>
+          <AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} lang={language} />
+        </Modal>
+      )}
+      {editingTransaction && (
+        <Modal title={t.editTransaction || "Edit Transaction"} onClose={() => setEditingTransaction(null)}>
+          <EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} lang={language} />
+        </Modal>
+      )}
       {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} />}
       
       <main>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            <div className="lg:col-span-1">
-                <BalanceReport report={balanceReportData} t={t} />
-            </div>
-            <div className="lg:col-span-2">
-                <ChartCard title={t.balanceEvolution} isOpen={true} onToggle={() => {}}>
-                    <BalanceEvolutionChart data={balanceEvolutionData} />
-                </ChartCard>
-            </div>
+            <div className="lg:col-span-1"><BalanceReport report={balanceReportData} t={t} /></div>
+            <div className="lg:col-span-2"><ChartCard title={t.balanceEvolution} isOpen={true} onToggle={() => {}}><BalanceEvolutionChart data={balanceEvolutionData} /></ChartCard></div>
         </div>
-
         <ChartFilters period={chartPeriod} setPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} t={t} />
-        
         <div className="space-y-8 mt-8">
-          <ChartCard title={t.incomeVsExpenses} isOpen={cardVisibility.incomeVsExpenses} onToggle={() => toggleCardVisibility('incomeVsExpenses')}>
-            <IncomeExpenseChart data={incomeExpenseData} t={t} />
-          </ChartCard>
-          <ChartCard title={t.summaryByCategory} isOpen={cardVisibility.category} onToggle={() => toggleCardVisibility('category')}>
-            <CategoryChart data={categorySummaryData} t={t} />
-          </ChartCard>
-          <ChartCard title={t.recurrentTransactions} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>
-            <RecurrentChart data={recurrentData} t={t} />
-          </ChartCard>
+          <ChartCard title={t.incomeVsExpenses} isOpen={cardVisibility.incomeVsExpenses} onToggle={() => toggleCardVisibility('incomeVsExpenses')}><IncomeExpenseChart data={incomeExpenseData} t={t} /></ChartCard>
+          <ChartCard title={t.summaryByCategory} isOpen={cardVisibility.category} onToggle={() => toggleCardVisibility('category')}><CategoryChart data={categorySummaryData} t={t} /></ChartCard>
+          <ChartCard title={t.recurrentTransactions} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}><RecurrentChart data={recurrentData} t={t} /></ChartCard>
         </div>
-
-        <div className="mt-8">
-          <TransactionList transactions={transactionsData.transactions} onEdit={setEditingTransaction} onDelete={handleDelete} categoryColorMap={categoryColorMap} t={t} />
-          <Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} />
-        </div>
+        <div className="mt-8"><TransactionList transactions={transactionsData.transactions} onEdit={setEditingTransaction} onDelete={handleDelete} categoryColorMap={categoryColorMap} t={t} /><Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} /></div>
       </main>
 
       <FloatingActionButton actions={fabActions} />

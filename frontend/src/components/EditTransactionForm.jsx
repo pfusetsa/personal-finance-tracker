@@ -29,7 +29,7 @@ function EditTransactionForm({ transaction, accounts, categories, onFormSubmit, 
           <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" />
           <input type="text" name="description" placeholder="Description" value={formData.description} onChange={handleChange} className="w-full p-2 border rounded" required />
           <div className="flex space-x-2">
-            <input type="number" name="amount" placeholder="Amount" value={formData.amount} onChange={handleChange} className="w-2/3 p-2 border rounded" required step="0.01" />
+            <input type="number" name="amount" placeholder="Amount" value={formData.amount} onChange={handleChange} onKeyDown={(e) => ['e', 'E', '+'].includes(e.key) && e.preventDefault()} className="w-2/3 p-2 border rounded" required step="0.01" />
             <select name="currency" value={formData.currency} onChange={handleChange} className="w-1/3 p-2 border rounded">
               <option value="EUR">EUR</option>
               <option value="USD">USD</option>

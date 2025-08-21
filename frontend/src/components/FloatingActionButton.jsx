@@ -13,20 +13,22 @@ function FloatingActionButton({ actions }) {
 
   return (
     <div className="fixed bottom-8 right-8 z-50">
-      {/* Action buttons that appear when open */}
-      <div className={`flex flex-col items-end space-y-2 mb-2 transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
-        {actions.map((action) => (
-          <button
-            key={action.label}
-            onClick={() => { action.onClick(); setIsOpen(false); }}
-            className="flex items-center justify-center bg-blue-100 shadow-md rounded-lg py-3 px-5 text-base font-semibold text-blue-800 hover:bg-blue-200"
-            style={{ transition: 'transform 0.3s', transform: isOpen ? 'translateY(0)' : 'translateY(20px)' }}
-          >
-            {ICONS[action.icon]}
-            {action.label}
-          </button>
-        ))}
-      </div>
+      {/* Conditionally render the action buttons */}
+      {isOpen && (
+        <div className="flex flex-col items-end space-y-2 mb-2">
+          {actions.map((action, index) => (
+            <button
+              key={action.label}
+              onClick={() => { action.onClick(); setIsOpen(false); }}
+              className="flex items-center justify-center bg-blue-100 shadow-md rounded-lg py-3 px-5 text-base font-semibold text-blue-800 hover:bg-blue-200 animate-pop-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              {ICONS[action.icon]}
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Main FAB button */}
       <button

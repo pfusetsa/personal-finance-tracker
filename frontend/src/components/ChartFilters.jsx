@@ -11,7 +11,7 @@ function ChartFilters({ period, setPeriod, customDates, setCustomDates, t }) {
   return (
     <div className="bg-white shadow rounded-lg p-4 mb-8">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-700">Filters</h3>
+        <h3 className="text-lg font-semibold text-gray-700">{t.Filters}</h3>
         <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
           {timePeriods.map(p => (
             <button

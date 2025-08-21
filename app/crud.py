@@ -133,3 +133,20 @@ def get_recurrent_summary(start_date: str, end_date: str):
     df = pd.read_sql_query(query, conn, params=[start_date, end_date])
     conn.close()
     return df
+
+def get_category_by_name(category_name):
+    conn = get_db_connection()
+    category = conn.execute("SELECT id, name FROM categories WHERE name = ?", (category_name,)).fetchone()
+    conn.close()
+    return dict(category) if category else None
+
+def add_category(category_name):
+    """Adds a new category and returns its ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO categories (name) VALUES (?)", (category_name,))
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()

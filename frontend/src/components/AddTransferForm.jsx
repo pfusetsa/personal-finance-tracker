@@ -27,7 +27,7 @@ function AddTransferForm({ accounts, onFormSubmit, onCancel, lang }) {
       <h2 className="text-xl font-semibold mb-4 text-gray-700">{lang === 'es' ? 'Añadir Transferencia' : 'Add Transfer'}</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" />
-        <input type="number" name="amount" placeholder={lang === 'es' ? 'Cantidad' : 'Amount'} value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required step="0.01" />
+        <input type="number" name="amount" placeholder={lang === 'es' ? 'Cantidad' : 'Amount'} value={formData.amount} onChange={handleChange} onKeyDown={(e) => ['e', 'E', '+', '-'].includes(e.key) && e.preventDefault()} className="w-full p-2 border rounded" required step="0.01" />
         <div>
           <label className="block text-sm font-medium text-gray-700">{lang === 'es' ? 'Desde la Cuenta' : 'From Account'}</label>
           <select name="from_account_id" value={formData.from_account_id} onChange={handleChange} className="w-full p-2 border rounded">{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>

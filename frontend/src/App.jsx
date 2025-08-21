@@ -44,7 +44,7 @@ function App() {
   const [notification, setNotification] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [language, setLanguage] = useState('en');
+  const [language, setLanguage] = useState(() => localStorage.getItem('language') || 'en');
   const [activeForm, setActiveForm] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [showChat, setShowChat] = useState(false);
@@ -58,11 +58,22 @@ function App() {
   const t = translations[language];
   const [cardVisibility, setCardVisibility] = useState(() => { try { const saved = localStorage.getItem('cardVisibility'); return saved ? JSON.parse(saved) : initialCardVisibility; } catch (e) { return initialCardVisibility; } });
 
-  // All useEffects and handlers...
-  useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
-  const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
-  const fabActions = [{ label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction') }, { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer') }, { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true) }];
-  useEffect(() => { fetch(`${API_URL}/transactions/?page=${currentPage}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' }).then(res => res.json()).then(data => setTransactionsData(data)); }, [currentPage, refreshTrigger]);
+  // Effect to SAVE card visibility state to localStorage
+  useEffect(() => {
+    localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility));
+  }, [cardVisibility]);
+
+  // Effect to SAVE language state to localStorage
+  useEffect(() => {
+    localStorage.setItem('language', language);
+  }, [language]);
+
+  // Effect to fetch transactions when page or refresh trigger changes
+  useEffect(() => {
+    fetch(`${API_URL}/transactions/?page=${currentPage}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' }).then(res => res.json()).then(data => setTransactionsData(data));
+  }, [currentPage, refreshTrigger]);
+
+  // Effect to fetch core data on refresh
   useEffect(() => {
     fetch(`${API_URL}/reports/balance/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceReportData(data));
     fetch(`${API_URL}/reports/balance-evolution/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceEvolutionData(data));
@@ -70,6 +81,7 @@ function App() {
     fetch(`${API_URL}/categories/`, { cache: 'no-cache' }).then(res => res.json()).then(data => { setCategories(data); const colorMap = {}; data.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; }); setCategoryColorMap(colorMap); });
   }, [refreshTrigger]);
   
+  // Effect to fetch chart data when filters or refresh trigger changes
   useEffect(() => {
     let startDate, endDate = new Date().toISOString().split('T')[0];
     if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; } 
@@ -78,13 +90,16 @@ function App() {
     else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } 
     else { return; }
     
-    // Update the category summary fetch to include the new filter type
     fetch(`${API_URL}/reports/category-summary/?start_date=${startDate}&end_date=${endDate}&transaction_type=${categoryChartType}`).then(res=>res.json()).then(data=>setCategorySummaryData(data));
-    
-    // Other chart fetches remain the same
     fetch(`${API_URL}/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setIncomeExpenseData(data));
     fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setRecurrentData(data));
-  }, [refreshTrigger, chartPeriod, customDates, categoryChartType]); // Add categoryChartType to dependency array
+  }, [refreshTrigger, chartPeriod, customDates, categoryChartType]);
+
+  const fabActions = [
+  { label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction') },
+  { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer') },
+  { label: t.askAI, icon:'ai', onClick: () => setShowChat(true) },
+  ];
 
   // All other handler functions are the same
   const showNotification = (message, type = 'success') => { setNotification({ message, type }); setTimeout(() => setNotification(null), 3000); };

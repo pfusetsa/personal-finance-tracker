@@ -17,76 +17,24 @@ import CategoryChart from './components/CategoryChart.jsx';
 import RecurrentChart from './components/RecurrentChart.jsx';
 import FloatingActionButton from './components/FloatingActionButton.jsx';
 import ChartCard from './components/ChartCard.jsx';
+import BalanceEvolutionChart from './components/BalanceEvolutionChart.jsx'; // Import the new chart
 
 // Constants and translations...
 const API_URL = "http://127.0.0.1:8000";
 const PAGE_SIZE = 10;
 const translations = {
-  en: { 
-    financeTracker: "Finance Tracker", 
-    addTransaction: "Add Transaction", 
-    addTransfer: "Add Transfer", 
-    askAI: "Ask the AI", 
-    balanceReport: "Balance Report", 
-    totalBalance: "Total Balance", 
-    recentTransactions: "Recent Transactions", 
-    summaryByCategory: "Summary by Category", 
-    incomeVsExpenses: "Income vs. Expenses", 
-    recurrentTransactions: "Recurrent Transactions", 
-    date: "Date", 
-    description: "Description", 
-    category: "Category", 
-    recurrent: "Recurrent", 
-    amount: "Amount", 
-    actions: "Actions", 
-    income: "Income", 
-    expenses: "Expenses", 
-    yes: "Yes", 
-    no: "No",
-    'Filters': 'Filters',  
-    '6 Months': '6 Months', 
-    '1 Year': '1 Year', 
-    'All Time': 'All Time',
-    'Custom': 'Custom' 
-  },
-  es: {
-    financeTracker: "Gestor de Finanzas",
-    addTransaction: "Añadir Transacción",
-    addTransfer: "Añadir Transferencia",
-    askAI: "Preguntar a la IA",
-    balanceReport: "Informe de Saldo",
-    totalBalance: "Saldo Total",
-    recentTransactions: "Transacciones Recientes",
-    summaryByCategory: "Resumen por Categoría",
-    incomeVsExpenses: "Ingresos vs. Gastos",
-    recurrentTransactions: "Transacciones Recurrentes",
-    date: "Fecha",
-    description: "Descripción",
-    category: "Categoría",
-    recurrent: "Recurrente",
-    amount: "Cantidad",
-    actions: "Acciones",
-    income: "Ingresos",
-    expenses: "Gastos",
-    yes: "Sí",
-    no: "No",
-    'Filters': 'Filtros',
-    '6 Months': '6 Meses',
-    '1 Year': '1 Año',
-    'All Time': 'Total',
-    'Custom': 'Personalizado'
-  }
+  en: { financeTracker: "Finance Tracker", addTransaction: "Add Transaction", addTransfer: "Add Transfer", askAI: "Ask the AI", balanceReport: "Balance Report", totalBalance: "Total Balance", recentTransactions: "Recent Transactions", summaryByCategory: "Summary by Category", incomeVsExpenses: "Income vs. Expenses", recurrentTransactions: "Recurrent Transactions", balanceEvolution: "Balance Evolution", date: "Date", description: "Description", category: "Category", recurrent: "Recurrent", amount: "Amount", actions: "Actions", income: "Income", expenses: "Expenses", yes: "Yes", no: "No", '6 Months': '6 Months', '1 Year': '1 Year', 'All Time': 'All Time', 'Custom': 'Custom', 'Filters': 'Filters' },
+  es: { financeTracker: "Gestor de Finanzas", addTransaction: "Añadir Transacción", addTransfer: "Añadir Transferencia", askAI: "Preguntar a la IA", balanceReport: "Informe de Saldo", totalBalance: "Saldo Total", recentTransactions: "Transacciones Recientes", summaryByCategory: "Resumen por Categoría", incomeVsExpenses: "Ingresos vs. Gastos", recurrentTransactions: "Transacciones Recurrentes", balanceEvolution: "Evolución del Saldo", date: "Fecha", description: "Descripción", category: "Categoría", recurrent: "Recurrente", amount: "Cantidad", actions: "Acciones", income: "Ingresos", expenses: "Gastos", yes: "Sí", no: "No", '6 Months': '6 Meses', '1 Year': '1 Año', 'All Time': 'Total', 'Custom': 'Personalizado', 'Filters': 'Filtros' }
 };
 
 const initialCardVisibility = {
-  // Balance report is no longer collapsible
   incomeVsExpenses: true,
   category: true,
   recurrent: true,
 };
 
 function App() {
-  // All state remains the same...
+  // All state...
   const [balanceReportData, setBalanceReportData] = useState(null);
   const [transactionsData, setTransactionsData] = useState({ transactions: [], total_count: 0 });
   const [accounts, setAccounts] = useState([]);
@@ -104,37 +52,24 @@ function App() {
   const [incomeExpenseData, setIncomeExpenseData] = useState(null);
   const [categorySummaryData, setCategorySummaryData] = useState(null);
   const [recurrentData, setRecurrentData] = useState(null);
+  const [balanceEvolutionData, setBalanceEvolutionData] = useState(null); // New state for the chart
   const t = translations[language];
-  const [cardVisibility, setCardVisibility] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cardVisibility');
-      return saved ? JSON.parse(saved) : initialCardVisibility;
-    } catch (e) {
-      return initialCardVisibility;
-    }
-  });
+  const [cardVisibility, setCardVisibility] = useState(() => { try { const saved = localStorage.getItem('cardVisibility'); return saved ? JSON.parse(saved) : initialCardVisibility; } catch (e) { return initialCardVisibility; } });
 
-  // All useEffects and handlers remain the same...
+  // All useEffects and handlers...
   useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
   const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
-  const fabActions = [
-    { label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction') },
-    { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer') },
-    { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true) },
-  ];
+  const fabActions = [{ label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction') }, { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer') }, { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true) }];
   useEffect(() => { fetch(`${API_URL}/transactions/?page=${currentPage}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' }).then(res => res.json()).then(data => setTransactionsData(data)); }, [currentPage, refreshTrigger]);
   useEffect(() => {
     fetch(`${API_URL}/reports/balance/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceReportData(data));
+    fetch(`${API_URL}/reports/balance-evolution/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceEvolutionData(data)); // Fetch data for new chart
     fetch(`${API_URL}/accounts/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setAccounts(data));
     fetch(`${API_URL}/categories/`, { cache: 'no-cache' }).then(res => res.json()).then(data => { setCategories(data); const colorMap = {}; data.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; }); setCategoryColorMap(colorMap); });
   }, [refreshTrigger]);
   useEffect(() => {
     let startDate, endDate = new Date().toISOString().split('T')[0];
-    if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; }
-    else if (chartPeriod === '1y') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); startDate = d.toISOString().split('T')[0]; }
-    else if (chartPeriod === 'all') { startDate = '1970-01-01'; }
-    else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; }
-    else { return; }
+    if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === '1y') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === 'all') { startDate = '1970-01-01'; } else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } else { return; }
     fetch(`${API_URL}/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setIncomeExpenseData(data));
     fetch(`${API_URL}/reports/category-summary/?start_date=${startDate}&end_date=${endDate}&transaction_type=expense`).then(res=>res.json()).then(data=>setCategorySummaryData(data));
     fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setRecurrentData(data));
@@ -143,38 +78,18 @@ function App() {
   const handleDataUpdate = (message) => { setActiveForm(null); setEditingTransaction(null); setRefreshTrigger(c => c + 1); showNotification(message); };
   const handleAddTransaction = (formData) => { fetch(`${API_URL}/transactions/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleDataUpdate('Transaction added!')).catch(error => { console.error('Failed to add transaction:', error); showNotification('Failed to add transaction.', 'error'); }); };
   const handleUpdateTransaction = (transactionId, formData) => { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleDataUpdate('Transaction updated!')).catch(error => { console.error('Failed to update transaction:', error); showNotification('Failed to update transaction.', 'error'); }); };
-  const handleAddTransfer = (formData) => {
-  fetch(`${API_URL}/transfers/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) })
-  })
-  .then(res => {
-    if (!res.ok) {
-      // We'll grab the error message from the server
-      return res.json().then(err => { throw new Error(err.detail); });
-    }
-    return res.json();
-  })
-  .then(() => handleDataUpdate('Transfer added!'))
-  .catch(error => {
-    console.error('Failed to add transfer:', error);
-    // Display the actual error from the server, or a default message
-    showNotification(error.message || 'Failed to add transfer.', 'error');
-  });
-};
+  const handleAddTransfer = (formData) => { fetch(`${API_URL}/transfers/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }) }).then(res => { if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); } return res.json(); }).then(() => handleDataUpdate('Transfer added!')).catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || 'Failed to add transfer.', 'error'); }); };
   const handleDelete = (transactionId) => { if (window.confirm("Are you sure?")) { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'DELETE' }).then(res => res.ok && handleDataUpdate('Transaction deleted!')) } };
-
 
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Notification message={notification?.message} type={notification?.type} />
-      <header>
+      <header> {/* ... header ... */ }
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
           <div className="flex justify-between items-center"><div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-gray-800 tracking-tight">{t.financeTracker}</h1></div><LanguageSelector language={language} setLanguage={setLanguage} /></div>
         </div>
       </header>
-
+      
       {/* Forms and Modals */}
       {activeForm === 'transaction' && <AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} lang={language} />}
       {activeForm === 'transfer' && <AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} lang={language} />}
@@ -182,10 +97,14 @@ function App() {
       {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} />}
       
       <main>
-        {/* New Layout Starts Here */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             <div className="lg:col-span-1">
                 <BalanceReport report={balanceReportData} t={t} />
+            </div>
+            <div className="lg:col-span-2">
+                <ChartCard title={t.balanceEvolution} isOpen={true} onToggle={() => {}}>
+                    <BalanceEvolutionChart data={balanceEvolutionData} />
+                </ChartCard>
             </div>
         </div>
 

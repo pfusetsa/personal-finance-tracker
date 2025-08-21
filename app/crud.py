@@ -150,3 +150,31 @@ def add_category(category_name):
         return cursor.lastrowid
     finally:
         conn.close()
+
+def get_balance_evolution_report():
+    conn = get_db_connection()
+    # This advanced SQL query calculates a running total (cumulative sum) of the balance over time
+    query = f"""
+    WITH daily_changes AS (
+        SELECT
+            date,
+            SUM(
+                amount * CASE currency
+                    WHEN 'EUR' THEN {EXCHANGE_RATES['EUR']}
+                    WHEN 'USD' THEN {EXCHANGE_RATES['USD']}
+                    WHEN 'GBP' THEN {EXCHANGE_RATES['GBP']}
+                    ELSE 1.0
+                END
+            ) as change
+        FROM transactions
+        GROUP BY date
+    )
+    SELECT
+        date,
+        SUM(change) OVER (ORDER BY date) as cumulative_balance
+    FROM daily_changes
+    ORDER BY date;
+    """
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df

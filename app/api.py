@@ -135,3 +135,8 @@ def get_monthly_income_expense_summary(start_date: date, end_date: date):
 def get_recurrent_summary(start_date: date, end_date: date):
     report_df = crud.get_recurrent_summary(str(start_date), str(end_date))
     return report_df.to_dict(orient="records")
+
+@app.get("/reports/balance-evolution/")
+def get_balance_evolution():
+    report_df = crud.get_balance_evolution_report()
+    return report_df.to_dict(orient="records")

@@ -55,6 +55,17 @@ def delete_transaction(transaction_id):
     conn.commit()
     conn.close()
     return True
+    
+def add_category(category_name):
+    """Adds a new category and returns its ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO categories (name) VALUES (?)", (category_name,))
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
 
 # --- Read Functions (Lookups) ---
 def get_accounts():
@@ -75,6 +86,12 @@ def get_categories():
     conn.close()
     return [dict(row) for row in categories]
 
+def get_category_by_name(category_name):
+    conn = get_db_connection()
+    category = conn.execute("SELECT id, name FROM categories WHERE name = ?", (category_name,)).fetchone()
+    conn.close()
+    return dict(category) if category else None
+
 # --- Read Functions (Transactions & Reports) ---
 def get_all_transactions(page=1, page_size=10):
     conn = get_db_connection()
@@ -87,94 +104,75 @@ def get_all_transactions(page=1, page_size=10):
 
 def get_balance_report():
     conn = get_db_connection()
-    # This query now calculates a converted_amount in EUR
     query = f"""
-    SELECT
-        a.name,
-        SUM(
-            t.amount * CASE t.currency
-                WHEN 'EUR' THEN {EXCHANGE_RATES['EUR']}
-                WHEN 'USD' THEN {EXCHANGE_RATES['USD']}
-                WHEN 'GBP' THEN {EXCHANGE_RATES['GBP']}
-                ELSE 1.0
-            END
-        ) as balance
-    FROM transactions t
-    JOIN accounts a ON t.account_id = a.id
-    GROUP BY a.name
-    ORDER BY a.id;
+    SELECT a.name, SUM(t.amount * CASE t.currency
+        WHEN 'EUR' THEN {EXCHANGE_RATES['EUR']} WHEN 'USD' THEN {EXCHANGE_RATES['USD']}
+        WHEN 'GBP' THEN {EXCHANGE_RATES['GBP']} ELSE 1.0 END
+    ) as balance FROM transactions t JOIN accounts a ON t.account_id = a.id GROUP BY a.name ORDER BY a.id;
     """
     df = pd.read_sql_query(query, conn)
     total_balance = df['balance'].sum() if not df.empty else 0
     conn.close()
     return df, total_balance
 
-# --- Chart functions are unchanged for now. They will still calculate based on raw amounts. ---
+def get_balance_evolution_report():
+    conn = get_db_connection()
+    query = f"""
+    WITH daily_changes AS (
+        SELECT date, SUM(amount * CASE currency
+            WHEN 'EUR' THEN {EXCHANGE_RATES['EUR']} WHEN 'USD' THEN {EXCHANGE_RATES['USD']}
+            WHEN 'GBP' THEN {EXCHANGE_RATES['GBP']} ELSE 1.0 END
+        ) as change FROM transactions GROUP BY date
+    )
+    SELECT date, SUM(change) OVER (ORDER BY date) as cumulative_balance FROM daily_changes ORDER BY date;
+    """
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
+
+# --- Chart Functions (Updated to Exclude Transfers) ---
 def get_category_summary_for_chart(start_date: str, end_date: str, transaction_type: str = 'expense'):
     conn = get_db_connection()
     type_filter = "t.amount < 0"
     if transaction_type == 'income': type_filter = "t.amount > 0"
-    elif transaction_type == 'both': type_filter = "c.name != 'Transfer'"
-    query = f"SELECT c.name as category, SUM(ABS(t.amount)) as total FROM transactions t JOIN categories c ON t.category_id = c.id WHERE {type_filter} AND t.date BETWEEN ? AND ? GROUP BY c.name HAVING total > 0 ORDER BY total DESC;"
+    elif transaction_type == 'both': type_filter = "1=1"
+    
+    query = f"""
+        SELECT c.name as category, SUM(ABS(t.amount)) as total
+        FROM transactions t JOIN categories c ON t.category_id = c.id
+        WHERE {type_filter} AND t.date BETWEEN ? AND ? AND c.name NOT IN ('Transfer', 'Transferencias')
+        GROUP BY c.name HAVING total > 0 ORDER BY total DESC;
+    """
     df = pd.read_sql_query(query, conn, params=[start_date, end_date])
     conn.close()
     return df
 
 def get_monthly_income_expense_summary(start_date: str, end_date: str):
     conn = get_db_connection()
-    query = "SELECT strftime('%Y-%m', date) as month, SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as income, SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as expenses FROM transactions WHERE date BETWEEN ? AND ? GROUP BY month ORDER BY month;"
+    query = """
+        SELECT
+            strftime('%Y-%m', t.date) as month,
+            SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as income,
+            SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as expenses
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.date BETWEEN ? AND ? AND c.name NOT IN ('Transfer', 'Transferencias')
+        GROUP BY month ORDER BY month;
+    """
     df = pd.read_sql_query(query, conn, params=[start_date, end_date])
     conn.close()
     return df
 
 def get_recurrent_summary(start_date: str, end_date: str):
     conn = get_db_connection()
-    query = "SELECT c.name as category, SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as income, SUM(CASE WHEN t.amount < 0 THEN ABS(amount) ELSE 0 END) as expenses FROM transactions t JOIN categories c ON t.category_id = c.id WHERE t.is_recurrent = 1 AND t.date BETWEEN ? AND ? GROUP BY c.name HAVING income > 0 OR expenses > 0 ORDER BY expenses DESC, income DESC;"
-    df = pd.read_sql_query(query, conn, params=[start_date, end_date])
-    conn.close()
-    return df
-
-def get_category_by_name(category_name):
-    conn = get_db_connection()
-    category = conn.execute("SELECT id, name FROM categories WHERE name = ?", (category_name,)).fetchone()
-    conn.close()
-    return dict(category) if category else None
-
-def add_category(category_name):
-    """Adds a new category and returns its ID."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("INSERT INTO categories (name) VALUES (?)", (category_name,))
-        conn.commit()
-        return cursor.lastrowid
-    finally:
-        conn.close()
-
-def get_balance_evolution_report():
-    conn = get_db_connection()
-    # This advanced SQL query calculates a running total (cumulative sum) of the balance over time
-    query = f"""
-    WITH daily_changes AS (
-        SELECT
-            date,
-            SUM(
-                amount * CASE currency
-                    WHEN 'EUR' THEN {EXCHANGE_RATES['EUR']}
-                    WHEN 'USD' THEN {EXCHANGE_RATES['USD']}
-                    WHEN 'GBP' THEN {EXCHANGE_RATES['GBP']}
-                    ELSE 1.0
-                END
-            ) as change
-        FROM transactions
-        GROUP BY date
-    )
-    SELECT
-        date,
-        SUM(change) OVER (ORDER BY date) as cumulative_balance
-    FROM daily_changes
-    ORDER BY date;
+    query = """
+        SELECT c.name as category,
+            SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as income,
+            SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as expenses
+        FROM transactions t JOIN categories c ON t.category_id = c.id
+        WHERE t.is_recurrent = 1 AND t.date BETWEEN ? AND ? AND c.name NOT IN ('Transfer', 'Transferencias')
+        GROUP BY c.name HAVING income > 0 OR expenses > 0 ORDER BY expenses DESC, income DESC;
     """
-    df = pd.read_sql_query(query, conn)
+    df = pd.read_sql_query(query, conn, params=[start_date, end_date])
     conn.close()
     return df

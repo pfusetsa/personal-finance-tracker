@@ -11,9 +11,8 @@ function Logo() {
       strokeLinecap="round" 
       strokeLinejoin="round"
     >
-      <path d="M17 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10" />
-      <path d="M12 15V7" />
-      <path d="M15 10l-3-3-3 3" />
+      <path d="M3 17l5-5 4 4L21 7" />
+      <path d="M14 7h7v7" />
     </svg>
   );
 }

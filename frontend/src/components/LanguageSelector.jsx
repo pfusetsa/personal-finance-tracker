@@ -26,9 +26,10 @@ function LanguageSelector({ language, setLanguage }) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10">
+        <div className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10 border border-gray-200">
           <ul className="py-1">
-            {languages.map(lang => (
+            {/* Filter the list to show only the non-selected language */}
+            {languages.filter(lang => lang.code !== language).map(lang => (
               <li
                 key={lang.code}
                 onClick={() => handleSelect(lang.code)}

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import date
 from fastapi.middleware.cors import CORSMiddleware
+import sqlite3
 
 from . import crud
 from .services import transaction_service, ai_service # Import services
@@ -53,6 +54,41 @@ def get_all_accounts():
 @app.get("/categories/")
 def get_all_categories():
     return crud.get_categories()
+
+# Add this new Pydantic model near the top with the others
+class CategoryUpdate(BaseModel):
+    name: str
+
+@app.post("/categories/", status_code=201)
+def create_category(category: CategoryUpdate):
+    try:
+        category_id = crud.add_category(category.name)
+        new_category = {"id": category_id, "name": category.name}
+        return new_category
+    except sqlite3.IntegrityError:
+        # Send a key and params instead of a hardcoded string
+        raise HTTPException(status_code=400, detail={"key": "category_exists", "params": {"name": category.name}})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/categories/{category_id}")
+def update_category(category_id: int, category: CategoryUpdate):
+    try:
+        crud.update_category(category_id, category.name)
+        return {"status": "success", "message": "Category updated."}
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail={"key": "category_exists", "params": {"name": category.name}})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/categories/{category_id}", status_code=204)
+def delete_category(category_id: int):
+    # Check if the category is in use before deleting
+    if crud.get_transaction_count_for_category(category_id) > 0:
+        raise HTTPException(status_code=400, detail="This category is in use and cannot be deleted.")
+    
+    crud.delete_category(category_id)
+    return Response(status_code=204)
 
 # --- Transactions ---
 @app.get("/transactions/")

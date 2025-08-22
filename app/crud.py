@@ -176,3 +176,30 @@ def get_recurrent_summary(start_date: str, end_date: str):
     df = pd.read_sql_query(query, conn, params=[start_date, end_date])
     conn.close()
     return df
+
+def update_category(category_id, name):
+    """Updates an existing category's name."""
+    conn = get_db_connection()
+    try:
+        conn.execute("UPDATE categories SET name = ? WHERE id = ?", (name, category_id))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def delete_category(category_id):
+    """Deletes a category from the database."""
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def get_transaction_count_for_category(category_id):
+    """Counts how many transactions are associated with a specific category."""
+    conn = get_db_connection()
+    count = conn.execute("SELECT COUNT(id) FROM transactions WHERE category_id = ?", (category_id,)).fetchone()[0]
+    conn.close()
+    return count

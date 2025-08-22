@@ -158,7 +158,7 @@ function App() {
           <ChartCard title={t.recurrentTransactions} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>{recurrentData ? <RecurrentChart data={recurrentData} t={t} /> : <ChartSkeleton />}</ChartCard>
         </div>
         <div className="mt-8">
-          {transactionsData ? (<><TransactionList transactions={transactionsData.transactions} onEdit={setEditingTransaction} onDelete={handleDelete} categoryColorMap={categoryColorMap} t={t} /><Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} /></>) : ( <TransactionListSkeleton /> )}
+          {transactionsData ? (<><TransactionList transactions={transactionsData.transactions} onEdit={setEditingTransaction} onDelete={handleDelete} categoryColorMap={categoryColorMap} t={t} /><Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} t={t} /></>) : ( <TransactionListSkeleton /> )}
         </div>
       </main>
 

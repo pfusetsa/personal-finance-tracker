@@ -46,5 +46,8 @@
   "deletionStrategyRequiredError": "Category is in use. A deletion strategy is required.",
   "targetCategoryRequiredError": "A target category is required for re-categorization.",
   "targetCategoryIsSameError": "Cannot re-categorize to the same category.",
-  "invalidStrategyError": "Invalid deletion strategy provided."
+  "invalidStrategyError": "Invalid deletion strategy provided.",
+  "previous": "Previous",
+  "next": "Next",
+  "pageOf": "Page {currentPage} of {totalPages}"
 }

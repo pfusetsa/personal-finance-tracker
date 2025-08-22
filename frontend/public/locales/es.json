@@ -46,5 +46,8 @@
   "deletionStrategyRequiredError": "La categoría está en uso. Se requiere una estrategia de eliminación.",
   "targetCategoryRequiredError": "Se requiere una categoría de destino para re-categorizar.",
   "targetCategoryIsSameError": "No se puede re-categorizar a la misma categoría.",
-  "invalidStrategyError": "La estrategia de eliminación no es válida."
+  "invalidStrategyError": "La estrategia de eliminación no es válida.",
+  "previous": "Anterior",
+  "next": "Siguiente",
+  "pageOf": "Página {currentPage} de {totalPages}"
 }

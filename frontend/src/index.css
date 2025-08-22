@@ -5,3 +5,18 @@
 body {
   @apply bg-gray-100 font-sans;
 }
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.2s ease-out forwards;
+}

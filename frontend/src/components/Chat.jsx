@@ -72,11 +72,25 @@ function Chat({ apiUrl, onCancel }) {
   const handleSend = () => {
     if (!input.trim()) return;
     const newMessages = [...messages, { text: input, sender: 'user' }];
-    setMessages(newMessages); setInput(''); setIsLoading(true);
-    fetch(`${apiUrl}/chat/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: input }), })
+    setMessages(newMessages);
+    setInput('');
+    setIsLoading(true);
+
+    fetch(`${apiUrl}/chat/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        query: input,
+        history: messages // Send the history
+      }),
+    })
     .then(res => res.ok ? res.json() : Promise.reject('Failed to get response'))
-    .then(data => { setMessages([...newMessages, { text: data.response, sender: 'ai' }]); })
-    .catch(err => { setMessages([...newMessages, { text: 'Sorry, I had trouble getting a response.', sender: 'ai' }]); })
+    .then(data => {
+      setMessages([...newMessages, { text: data.response, sender: 'ai' }]);
+    })
+    .catch(err => {
+      setMessages([...newMessages, { text: 'Sorry, I had trouble getting a response.', sender: 'ai' }]);
+    })
     .finally(() => setIsLoading(false));
   };
 

@@ -83,6 +83,41 @@ function App() {
     fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setRecurrentData(data));
   }, [refreshTrigger, chartPeriod, customDates, categoryChartType]);
 
+  // useEffect for keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Ignore shortcuts if the user is typing in an input/textarea
+      if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) {
+        return;
+      }
+      
+      if (event.key === 'Escape') {
+        setActiveForm(null);
+        setEditingTransaction(null);
+        setShowSettings(false);
+        setShowChat(false);
+      }
+      if (event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        setActiveForm('transaction');
+      }
+      if (event.key.toLowerCase() === 't') {
+        event.preventDefault();
+        setActiveForm('transfer');
+      }
+      if (event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        setShowChat(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty dependency array means this runs only once on mount
+
   const showNotification = (message, type = 'success') => { setNotification({ message, type }); setTimeout(() => setNotification(null), 3000); };
   const handleDataUpdate = (message, type = 'success') => { setRefreshTrigger(c => c + 1); showNotification(message, type); };
 

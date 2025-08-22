@@ -27,6 +27,7 @@ class TransferCreate(BaseModel):
 
 class ChatQuery(BaseModel):
     query: str
+    history: Optional[list] = []
 
 class CategoryDeleteOptions(BaseModel):
     strategy: str  # 'recategorize' or 'delete_transactions'
@@ -177,8 +178,7 @@ def create_transfer(transfer: TransferCreate):
 @app.post("/chat/")
 async def handle_chat(query: ChatQuery):
     try:
-        # Call the AI service
-        response_text = await ai_service.execute_natural_language_query(query.query)
+        response_text = await ai_service.execute_natural_language_query(query.query, query.history)
         return {"response": response_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")

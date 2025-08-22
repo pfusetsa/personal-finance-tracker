@@ -2,20 +2,14 @@
 import httpx
 import pandas as pd
 from datetime import datetime
-
 from .. import crud
 from ..config import GEMINI_API_URL, GEMINI_API_KEY
 
-async def call_gemini_api(prompt: str):
-    """
-    Generic function to call the Gemini API.
-    """
+async def call_gemini_api(payload):
     if not GEMINI_API_KEY:
         return "Error: GEMINI_API_KEY is not set."
-
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
-            payload = {"contents": [{"parts": [{"text": prompt}]}]}
             headers = {'Content-Type': 'application/json'}
             response = await client.post(f"{GEMINI_API_URL}?key={GEMINI_API_KEY}", json=payload, headers=headers)
             response.raise_for_status()
@@ -25,63 +19,61 @@ async def call_gemini_api(prompt: str):
             print(f"Error calling Gemini API: {e}")
             return "Error: Could not get a response from the AI model."
 
-async def execute_natural_language_query(user_query: str) -> str:
-    """
-    Takes a natural language query, converts it to SQL, executes it,
-    and formats the result into a natural language response.
-    """
-    db_schema = crud.get_db_schema_string()
+async def execute_natural_language_query(user_query: str, history: list = []) -> str:
+    db_schema = crud.get_db_schema_string() # Calls the correct function name
     today = datetime.today().strftime('%Y-%m-%d')
+    
+    # Format history for the prompt
+    history_string = "\n".join([f"{item['sender']}: {item['text']}" for item in history])
+    
+    system_instruction = f"""
+You are TrakFin AI, a friendly and expert financial assistant for the TrakFin app.
+Your goal is to help the user understand their finances by answering their questions.
+You can query their financial database using SQLite. Today's date is {today}.
 
-    sql_generation_prompt = f"""
-    You are an expert SQLite database engineer. Based on the database schema below, write a single, precise SQL query to answer the user's question.
+DATABASE SCHEMA:
+{db_schema}
 
-    Database Schema:
-    {db_schema}
+When the user asks a question, first decide if you need to query the database.
+1.  If the question is about their financial data (spending, income, balance, categories), you MUST generate a SQLite query.
+    - Your only output should be the SQLite query, wrapped in `[SQL]` tags. Example: `[SQL]SELECT SUM(amount) FROM transactions;[/SQL]`
+    - Use the chat history to understand context for follow-up questions (e.g., "what about last month?").
+2.  If the question is a greeting or general financial advice, just answer conversationally. Do not use `[SQL]` tags.
 
-    ---
-    Here is an example of how to answer a user's question:
-    User Question: "What was my total balance in July 2024?"
-    SQL Query: SELECT SUM(amount) FROM transactions WHERE strftime('%Y-%m', date) = '2024-07';
-    ---
+Chat History (for context):
+{history_string}
+"""
+    
+    # Construct the Gemini API payload with a simplified history structure
+    contents = [
+        {"role": "user", "parts": [{"text": system_instruction}]},
+        {"role": "model", "parts": [{"text": "Understood. I am TrakFin AI, ready to help."}]}
+    ]
+    # Add the current user query last
+    contents.append({"role": "user", "parts": [{"text": user_query}]})
+    
+    payload = {"contents": contents}
+    
+    ai_response = await call_gemini_api(payload)
+    ai_response = ai_response.strip()
 
-    User Question:
-    "{user_query}"
-
-    Rules:
-    - Today's date is {today}.
-    - "Balance" is the `SUM(amount)` of transactions.
-    - "Income" is `SUM(amount)` WHERE amount > 0.
-    - "Expenses" is `SUM(ABS(amount))` WHERE amount < 0.
-    - For date ranges, use `strftime('%Y-%m', date)`. For "August 2025", use `WHERE strftime('%Y-%m', date) = '2025-08'`.
-    - Only output a single, valid SQLite query. Do not include explanations or markdown.
-    - If the question cannot be answered, respond with the exact text: "I cannot answer this question."
-    """
-
-    generated_sql = await call_gemini_api(sql_generation_prompt)
-    generated_sql = generated_sql.strip().replace('`', '').replace('sql', '')
-
-    if "I cannot answer this question" in generated_sql or not generated_sql.upper().startswith("SELECT"):
-        return "I'm sorry, I can't answer that question with the available data."
-
-    try:
-        conn = crud.get_db_connection()
-        result_df = pd.read_sql_query(generated_sql, conn)
-        conn.close()
-        data_result = result_df.to_string(index=False) if not result_df.empty else "No results found."
-    except Exception as e:
-        return f"I tried to run a query, but it failed: {e}"
-
-    response_formatting_prompt = f"""
-    You are a helpful financial assistant. Based on the user's question and the data result, provide a concise and friendly natural language answer.
-    Format all currency amounts in Euros (e.g., 1,234.56 €).
-
-    User Question: "{user_query}"
-    Data Result:
-    {data_result}
-
-    Answer:
-    """
-
-    final_answer = await call_gemini_api(response_formatting_prompt)
-    return final_answer
+    if ai_response.startswith("[SQL]") and ai_response.endswith("[/SQL]"):
+        sql_query = ai_response.replace("[SQL]", "").replace("[/SQL]", "").strip()
+        print(f"🤖 TrakFin AI Generated SQL: {sql_query}")
+        
+        try:
+            conn = crud.get_db_connection()
+            result_df = pd.read_sql_query(sql_query, conn)
+            conn.close()
+            data_result = result_df.to_string(index=False) if not result_df.empty else "No results found."
+        except Exception as e:
+            return f"I tried to run a query, but it failed. Please ask your question differently. (Error: {e})"
+            
+        formatting_prompt = f"The user originally asked: '{user_query}'. You decided to run the SQL query: '{sql_query}'. The result from the database is: \n{data_result}\n. Based on this data, please present a final, friendly answer to the user. Format all currency amounts in Euros (e.g., 1,234.56 €)."
+        
+        # Create a new, clean payload for the final formatting step
+        final_payload = {"contents": [{"role": "user", "parts": [{"text": formatting_prompt}]}]}
+        final_answer = await call_gemini_api(final_payload)
+        return final_answer
+    else:
+        return ai_response

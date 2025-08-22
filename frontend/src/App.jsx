@@ -82,7 +82,48 @@ function App() {
     fetch(`${API_URL}/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setIncomeExpenseData(data));
     fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setRecurrentData(data));
   }, [refreshTrigger, chartPeriod, customDates, categoryChartType]);
+  // useEffect for keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Ignore shortcuts if the user is typing in an input/textarea
+      if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) {
+        return;
+      }
+      
+      // Handle 'Escape' key to close any open modal/form
+      if (event.key === 'Escape') {
+        setActiveForm(null);
+        setEditingTransaction(null);
+        setShowSettings(false);
+        setShowChat(false);
+      }
 
+      // Handle 'n' for New Transaction (case-insensitive)
+      if (event.key.toLowerCase() === 'n') {
+        event.preventDefault(); // Prevent default browser actions
+        setActiveForm('transaction');
+      }
+      
+      // Handle 't' for New Transfer (case-insensitive)
+      if (event.key.toLowerCase() === 't') {
+        event.preventDefault();
+        setActiveForm('transfer');
+      }
+
+      // Handle 'a' for AI Assistant (case-insensitive)
+      if (event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        setShowChat(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup function to remove the event listener when the component unmounts
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty dependency array means this runs only once on mount
   const showNotification = (message, type = 'success') => { setNotification({ message, type }); setTimeout(() => setNotification(null), 3000); };
   const handleDataUpdate = (message, type = 'success') => { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setRefreshTrigger(c => c + 1); showNotification(message, type); };
   // ... rest of handlers
@@ -108,9 +149,9 @@ function App() {
       </header>
       
       {/* Forms and Modals */}
-      {activeForm === 'transaction' && (<Modal title={t.addTransaction} onClose={() => setActiveForm(null)}><AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} lang={language} /></Modal>)}
-      {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} lang={language} /></Modal>)}
-      {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} lang={language} /></Modal>)}
+      {activeForm === 'transaction' && (<Modal title={t.addTransaction} onClose={() => setActiveForm(null)}><AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} t={t} /></Modal>)}
+      {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} t={t} /></Modal>)}
+      {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} t={t} /></Modal>)}
       {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} />}
       {showSettings && (<Modal title={t.manageCategories} onClose={() => setShowSettings(false)}><CategoryManager onUpdate={handleDataUpdate} t={t} /></Modal>)}
       

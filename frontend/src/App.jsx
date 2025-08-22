@@ -53,27 +53,18 @@ function App() {
   const [categoryChartType, setCategoryChartType] = useState('expense');
   const [cardVisibility, setCardVisibility] = useState(() => { try { const saved = localStorage.getItem('cardVisibility'); return saved ? JSON.parse(saved) : initialCardVisibility; } catch (e) { return initialCardVisibility; } });
 
-  useEffect(() => {
-    fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data));
-    localStorage.setItem('language', language);
-  }, [language]);
-
+  useEffect(() => { fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data)); localStorage.setItem('language', language); }, [language]);
   useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
-
-  const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
-
   useEffect(() => {
     setTransactionsData(null);
     fetch(`${API_URL}/transactions/?page=${currentPage}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' }).then(res => res.json()).then(data => setTransactionsData(data));
   }, [currentPage, refreshTrigger]);
-
   useEffect(() => {
     fetch(`${API_URL}/reports/balance/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceReportData(data));
     fetch(`${API_URL}/reports/balance-evolution/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceEvolutionData(data));
     fetch(`${API_URL}/accounts/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setAccounts(data));
     fetch(`${API_URL}/categories/`, { cache: 'no-cache' }).then(res => res.json()).then(data => { setCategories(data); const colorMap = {}; data.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; }); setCategoryColorMap(colorMap); });
   }, [refreshTrigger]);
-
   useEffect(() => {
     let startDate, endDate = new Date().toISOString().split('T')[0];
     if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === '1y') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === 'all') { startDate = '1970-01-01'; } else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } else { return; }
@@ -82,53 +73,45 @@ function App() {
     fetch(`${API_URL}/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setIncomeExpenseData(data));
     fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setRecurrentData(data));
   }, [refreshTrigger, chartPeriod, customDates, categoryChartType]);
-
-  // useEffect for keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event) => {
-      // Ignore shortcuts if the user is typing in an input/textarea
-      if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) {
-        return;
-      }
-      
-      if (event.key === 'Escape') {
-        setActiveForm(null);
-        setEditingTransaction(null);
-        setShowSettings(false);
-        setShowChat(false);
-      }
-      if (event.key.toLowerCase() === 'n') {
-        event.preventDefault();
-        setActiveForm('transaction');
-      }
-      if (event.key.toLowerCase() === 't') {
-        event.preventDefault();
-        setActiveForm('transfer');
-      }
-      if (event.key.toLowerCase() === 'a') {
-        event.preventDefault();
-        setShowChat(true);
-      }
+      if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) { return; }
+      if (event.key === 'Escape') { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setShowChat(false); }
+      if (event.key.toLowerCase() === 'n') { event.preventDefault(); setActiveForm('transaction'); }
+      if (event.key.toLowerCase() === 't') { event.preventDefault(); setActiveForm('transfer'); }
+      if (event.key.toLowerCase() === 'a') { event.preventDefault(); setShowChat(true); }
     };
-
     window.addEventListener('keydown', handleKeyDown);
+    return () => { window.removeEventListener('keydown', handleKeyDown); };
+  }, []);
 
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []); // Empty dependency array means this runs only once on mount
-
+  const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
   const showNotification = (message, type = 'success') => { setNotification({ message, type }); setTimeout(() => setNotification(null), 3000); };
-  const handleDataUpdate = (message, type = 'success') => { setRefreshTrigger(c => c + 1); showNotification(message, type); };
+  
+  const handleDataUpdate = (message, type = 'success') => {
+    setRefreshTrigger(c => c + 1);
+    showNotification(message, type);
+  };
+  
+  const handleTransactionSuccess = (message) => {
+    handleDataUpdate(message);
+    setActiveForm(null);
+    setEditingTransaction(null);
+  };
+
+  const handleCategorySuccess = (message, type = 'success') => {
+    // For categories, we refresh data but keep the modal open
+    handleDataUpdate(message, type);
+  }
 
   if (!translations) { return <div className="p-8 text-center">Loading TrakFin...</div>; }
 
   const t = translations;
   const fabActions = [{ label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction') }, { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer') }, { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true) }];
   const categoryChartFilterControl = ( <select value={categoryChartType} onChange={e => setCategoryChartType(e.target.value)} className="p-1 border rounded-md text-sm bg-gray-50"><option value="expense">{t.expenses}</option><option value="income">{t.income}</option><option value="both">{t.both}</option></select> );
-  const handleAddTransaction = (formData) => { fetch(`${API_URL}/transactions/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleDataUpdate(t.categoryAddedSuccess || 'Transaction added!')).catch(error => { console.error('Failed to add transaction:', error); showNotification('Failed to add transaction.', 'error'); }); };
-  const handleUpdateTransaction = (transactionId, formData) => { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleDataUpdate(t.categoryUpdatedSuccess || 'Transaction updated!')).catch(error => { console.error('Failed to update transaction:', error); showNotification('Failed to update transaction.', 'error'); }); };
-  const handleAddTransfer = (formData) => { fetch(`${API_URL}/transfers/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }) }).then(res => { if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); } return res.json(); }).then(() => handleDataUpdate('Transfer added!')).catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || 'Failed to add transfer.', 'error'); }); };
+  const handleAddTransaction = (formData) => { fetch(`${API_URL}/transactions/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id), currency: formData.currency }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.categoryAddedSuccess || 'Transaction added!')).catch(error => { console.error('Failed to add transaction:', error); showNotification('Failed to add transaction.', 'error'); }); };
+  const handleUpdateTransaction = (transactionId, formData) => { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id), currency: formData.currency }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.categoryUpdatedSuccess || 'Transaction updated!')).catch(error => { console.error('Failed to update transaction:', error); showNotification('Failed to update transaction.', 'error'); }); };
+  const handleAddTransfer = (formData) => { fetch(`${API_URL}/transfers/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }) }).then(res => { if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); } return res.json(); }).then(() => handleTransactionSuccess('Transfer added!')).catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || 'Failed to add transfer.', 'error'); }); };
   const handleDelete = (transactionId) => { if (window.confirm("Are you sure?")) { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'DELETE' }).then(res => res.ok && handleDataUpdate('Transaction deleted!')) } };
 
   return (
@@ -143,13 +126,13 @@ function App() {
       {activeForm === 'transaction' && (<Modal title={t.addTransaction} onClose={() => setActiveForm(null)}><AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
       {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
       {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} t={t} language={language} /></Modal>)}
-      {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} />}
-      {showSettings && (<Modal title={t.manageCategories} onClose={() => setShowSettings(false)}><CategoryManager onUpdate={handleDataUpdate} t={t} /></Modal>)}
+      {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} t={t} />}
+      {showSettings && (<Modal title={t.manageCategories} onClose={() => setShowSettings(false)}><CategoryManager onUpdate={handleCategorySuccess} t={t} /></Modal>)}
       
       <main>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData} t={t} /> : <BalanceReportSkeleton />}</div>
-          <div className="lg:col-span-2"><ChartCard title={t.balanceEvolution} isOpen={true} onToggle={() => {}}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <div className="h-64 flex items-center justify-center"><p>Loading chart...</p></div>}</ChartCard></div>
+            <div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData} t={t} /> : <BalanceReportSkeleton />}</div>
+            <div className="lg:col-span-2"><ChartCard title={t.balanceEvolution} isOpen={true} onToggle={() => {}}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <div className="h-64 flex items-center justify-center"><p>Loading chart...</p></div>}</ChartCard></div>
         </div>
         <ChartFilters period={chartPeriod} setPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} t={t} language={language} />
         <div className="space-y-8 mt-8">

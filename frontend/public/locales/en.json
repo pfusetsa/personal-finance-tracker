@@ -49,5 +49,6 @@
   "invalidStrategyError": "Invalid deletion strategy provided.",
   "previous": "Previous",
   "next": "Next",
-  "pageOf": "Page {currentPage} of {totalPages}"
+  "pageOf": "Page {currentPage} of {totalPages}",
+  "aiAssistant": "AI Assistant"
 }

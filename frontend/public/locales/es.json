@@ -49,5 +49,6 @@
   "invalidStrategyError": "La estrategia de eliminación no es válida.",
   "previous": "Anterior",
   "next": "Siguiente",
-  "pageOf": "Página {currentPage} de {totalPages}"
+  "pageOf": "Página {currentPage} de {totalPages}",
+  "aiAssistant": "Asistente de IA"
 }

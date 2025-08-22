@@ -203,3 +203,21 @@ def get_transaction_count_for_category(category_id):
     count = conn.execute("SELECT COUNT(id) FROM transactions WHERE category_id = ?", (category_id,)).fetchone()[0]
     conn.close()
     return count
+
+def recategorize_transactions(from_category_id, to_category_id):
+    """Updates all transactions from one category to another."""
+    conn = get_db_connection()
+    try:
+        conn.execute("UPDATE transactions SET category_id = ? WHERE category_id = ?", (to_category_id, from_category_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+def delete_transactions_by_category(category_id):
+    """Deletes all transactions associated with a specific category."""
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM transactions WHERE category_id = ?", (category_id,))
+        conn.commit()
+    finally:
+        conn.close()

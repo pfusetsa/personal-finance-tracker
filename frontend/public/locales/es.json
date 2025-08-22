@@ -29,6 +29,9 @@
   "category": "Categoría",
   "recurrent": "Recurrente",
   "amount": "Cantidad",
+  "fromAccount": "Desde la Cuenta",
+  "toAccount": "A la Cuenta",
+  "sameAccountError": "No se puede transferir a la misma cuenta.",
   "actions": "Acciones",
   "income": "Ingresos",
   "expenses": "Gastos",
@@ -40,7 +43,8 @@
   "All Time": "Total",
   "Custom": "Personalizado",
   "Filters": "Filtros",
-  "fromAccount": "Desde la Cuenta",
-  "toAccount": "A la Cuenta",
-  "sameAccountError": "No se puede transferir a la misma cuenta."
+  "deletionStrategyRequiredError": "La categoría está en uso. Se requiere una estrategia de eliminación.",
+  "targetCategoryRequiredError": "Se requiere una categoría de destino para re-categorizar.",
+  "targetCategoryIsSameError": "No se puede re-categorizar a la misma categoría.",
+  "invalidStrategyError": "La estrategia de eliminación no es válida."
 }

@@ -28,6 +28,10 @@ class TransferCreate(BaseModel):
 class ChatQuery(BaseModel):
     query: str
 
+class CategoryDeleteOptions(BaseModel):
+    strategy: str  # 'recategorize' or 'delete_transactions'
+    target_category_id: Optional[int] = None
+
 # --- FastAPI App Instance & CORS ---
 app = FastAPI(
     title="Personal Finance Tracker API",
@@ -81,12 +85,40 @@ def update_category(category_id: int, category: CategoryUpdate):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# Add this new Pydantic model near the top with the others
+class CategoryDeleteOptions(BaseModel):
+    strategy: str  # 'recategorize' or 'delete_transactions'
+    target_category_id: Optional[int] = None
+
+# Add this new helper endpoint
+@app.get("/categories/{category_id}/transaction_count")
+def get_category_transaction_count(category_id: int):
+    count = crud.get_transaction_count_for_category(category_id)
+    return {"count": count}
+
+# Replace the existing delete_category endpoint with this one
 @app.delete("/categories/{category_id}", status_code=204)
-def delete_category(category_id: int):
-    # Check if the category is in use before deleting
-    if crud.get_transaction_count_for_category(category_id) > 0:
-        raise HTTPException(status_code=400, detail="This category is in use and cannot be deleted.")
+def delete_category(category_id: int, options: Optional[CategoryDeleteOptions] = None):
+    count = crud.get_transaction_count_for_category(category_id)
     
+    if count > 0:
+        if not options:
+            raise HTTPException(status_code=400, detail={"key": "deletion_strategy_required"})
+        
+        if options.strategy == 'recategorize':
+            if not options.target_category_id:
+                raise HTTPException(status_code=400, detail={"key": "target_category_required"})
+            if category_id == options.target_category_id:
+                raise HTTPException(status_code=400, detail={"key": "target_category_is_same"})
+            crud.recategorize_transactions(category_id, options.target_category_id)
+        
+        elif options.strategy == 'delete_transactions':
+            crud.delete_transactions_by_category(category_id)
+        
+        else:
+            raise HTTPException(status_code=400, detail={"key": "invalid_strategy"})
+
+    # Finally, delete the now-empty category
     crud.delete_category(category_id)
     return Response(status_code=204)
 

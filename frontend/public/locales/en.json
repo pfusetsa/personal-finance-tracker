@@ -29,6 +29,9 @@
   "category": "Category",
   "recurrent": "Recurrent",
   "amount": "Amount",
+  "fromAccount": "From Account",
+  "toAccount": "To Account",
+  "sameAccountError": "Cannot transfer to the same account.",
   "actions": "Actions",
   "income": "Income",
   "expenses": "Expenses",
@@ -40,7 +43,8 @@
   "All Time": "All Time",
   "Custom": "Custom",
   "Filters": "Filters",
-  "fromAccount": "From Account",
-  "toAccount": "To Account",
-  "sameAccountError": "Cannot transfer to the same account."
+  "deletionStrategyRequiredError": "Category is in use. A deletion strategy is required.",
+  "targetCategoryRequiredError": "A target category is required for re-categorization.",
+  "targetCategoryIsSameError": "Cannot re-categorize to the same category.",
+  "invalidStrategyError": "Invalid deletion strategy provided."
 }

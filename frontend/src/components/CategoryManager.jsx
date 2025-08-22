@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ConfirmationModal from './ConfirmationModal';
+import AdvancedDeleteModal from './AdvancedDeleteModal';
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -7,79 +8,96 @@ function CategoryManager({ onUpdate, t }) {
   const [categories, setCategories] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
-  const [deletingCategory, setDeletingCategory] = useState(null);
+  const [simpleDeleteTarget, setSimpleDeleteTarget] = useState(null);
+  const [advancedDeleteTarget, setAdvancedDeleteTarget] = useState(null);
 
   useEffect(() => {
     fetch(`${API_URL}/categories/`).then(res => res.json()).then(data => setCategories(data));
   }, []);
 
   const handleError = (error) => {
-    if (error && error.key) {
-      // Convert snake_case from API (e.g., category_exists) to camelCase for JS (categoryExists)
-      const camelCaseKey = error.key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
-      const translationKey = `${camelCaseKey}Error`; // e.g., categoryExistsError
-
+    const detail = error.detail || error;
+    if (detail && detail.key) {
+      const camelCaseKey = detail.key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+      const translationKey = `${camelCaseKey}Error`;
+      
       if (t[translationKey]) {
         let message = t[translationKey];
-        if (error.params) {
-          for (const [key, value] of Object.entries(error.params)) {
+        if (detail.params) {
+          for (const [key, value] of Object.entries(detail.params)) {
             message = message.replace(`{${key}}`, value);
           }
         }
         onUpdate(message, 'error');
-        return; // Exit after handling the specific error
+        return;
       }
     }
-    // Fallback for all other errors
-    onUpdate(error.message || error.detail || 'An unknown error occurred.', 'error');
+    onUpdate(detail || 'An unknown error occurred.', 'error');
   };
 
   const apiCall = (endpoint, options) => {
-    return fetch(endpoint, options)
-      .then(async (res) => {
-        if (!res.ok) {
-          const errorBody = await res.json();
-          throw errorBody;
-        }
-        if (res.status === 204) { return null; }
-        return res.json();
-      });
+    return fetch(endpoint, options).then(async (res) => {
+      if (!res.ok) {
+        throw await res.json();
+      }
+      return res.status === 204 ? null : res.json();
+    });
   };
 
   const handleAddCategory = (e) => {
     e.preventDefault();
-    apiCall(`${API_URL}/categories/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCategoryName }), })
+    apiCall(`${API_URL}/categories/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCategoryName }) })
       .then(newCategory => {
         setCategories([...categories, newCategory]);
         setNewCategoryName('');
         onUpdate(t.categoryAddedSuccess);
       })
-      .catch(err => handleError(err.detail || err));
-  };
-
-  const confirmDeleteCategory = () => {
-    if (!deletingCategory) return;
-    apiCall(`${API_URL}/categories/${deletingCategory.id}`, { method: 'DELETE' })
-      .then(() => {
-        setCategories(categories.filter(cat => cat.id !== deletingCategory.id));
-        setDeletingCategory(null);
-        onUpdate(t.categoryDeletedSuccess);
-      })
-      .catch(err => {
-        handleError(err.detail || err);
-        setDeletingCategory(null);
-      });
+      .catch(handleError);
   };
 
   const handleUpdateCategory = (e) => {
     e.preventDefault();
-    apiCall(`${API_URL}/categories/${editingCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingCategory.name }), })
+    apiCall(`${API_URL}/categories/${editingCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingCategory.name }) })
       .then(() => {
         setCategories(categories.map(cat => cat.id === editingCategory.id ? { ...cat, name: editingCategory.name } : cat));
         setEditingCategory(null);
         onUpdate(t.categoryUpdatedSuccess);
       })
-      .catch(err => handleError(err.detail || err));
+      .catch(handleError);
+  };
+
+  const initiateDelete = (category) => {
+    fetch(`${API_URL}/categories/${category.id}/transaction_count`).then(res => res.json())
+      .then(data => {
+        if (data.count > 0) {
+          setAdvancedDeleteTarget({ category, count: data.count });
+        } else {
+          setSimpleDeleteTarget(category);
+        }
+      })
+      .catch(handleError);
+  };
+
+  const confirmSimpleDelete = () => {
+    if (!simpleDeleteTarget) return;
+    apiCall(`${API_URL}/categories/${simpleDeleteTarget.id}`, { method: 'DELETE' })
+      .then(() => {
+        setCategories(categories.filter(cat => cat.id !== simpleDeleteTarget.id));
+        setSimpleDeleteTarget(null);
+        onUpdate(t.categoryDeletedSuccess);
+      })
+      .catch(err => { handleError(err); setSimpleDeleteTarget(null); });
+  };
+  
+  const confirmAdvancedDelete = (options) => {
+    const categoryId = advancedDeleteTarget.category.id;
+    apiCall(`${API_URL}/categories/${categoryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) })
+      .then(() => {
+        setCategories(categories.filter(cat => cat.id !== categoryId));
+        setAdvancedDeleteTarget(null);
+        onUpdate(t.categoryDeletedSuccess);
+      })
+      .catch(err => { handleError(err); setAdvancedDeleteTarget(null); });
   };
 
   return (
@@ -102,14 +120,16 @@ function CategoryManager({ onUpdate, t }) {
                 <span>{category.name}</span>
                 <div className="space-x-2">
                   <button onClick={() => setEditingCategory(category)} className="text-blue-600 hover:text-blue-800">{t.edit}</button>
-                  <button onClick={() => setDeletingCategory(category)} className="text-red-600 hover:text-red-800">{t.delete}</button>
+                  <button onClick={() => initiateDelete(category)} className="text-red-600 hover:text-red-800">{t.delete}</button>
                 </div>
               </>
             )}
           </li>
         ))}
       </ul>
-      {deletingCategory && ( <ConfirmationModal message={`${t.deleteConfirmMessage} "${deletingCategory.name}"?`} onConfirm={confirmDeleteCategory} onCancel={() => setDeletingCategory(null)} confirmText={t.delete} cancelText={t.cancel} /> )}
+      
+      {simpleDeleteTarget && ( <ConfirmationModal message={`${t.deleteConfirmMessage} "${simpleDeleteTarget.name}"?`} onConfirm={confirmSimpleDelete} onCancel={() => setSimpleDeleteTarget(null)} confirmText={t.delete} cancelText={t.cancel} /> )}
+      {advancedDeleteTarget && ( <AdvancedDeleteModal category={advancedDeleteTarget.category} transactionCount={advancedDeleteTarget.count} allCategories={categories} onConfirm={confirmAdvancedDelete} onCancel={() => setAdvancedDeleteTarget(null)} t={t} /> )}
     </div>
   );
 }

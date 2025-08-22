@@ -149,9 +149,9 @@ function App() {
       </header>
       
       {/* Forms and Modals */}
-      {activeForm === 'transaction' && (<Modal title={t.addTransaction} onClose={() => setActiveForm(null)}><AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} t={t} /></Modal>)}
-      {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} t={t} /></Modal>)}
-      {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} t={t} /></Modal>)}
+      {activeForm === 'transaction' && (<Modal title={t.addTransaction} onClose={() => setActiveForm(null)}><AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
+      {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
+      {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} t={t} language={language} /></Modal>)}
       {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} />}
       {showSettings && (<Modal title={t.manageCategories} onClose={() => setShowSettings(false)}><CategoryManager onUpdate={handleDataUpdate} t={t} /></Modal>)}
       
@@ -166,7 +166,7 @@ function App() {
                 </ChartCard>
             </div>
         </div>
-        <ChartFilters period={chartPeriod} setPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} t={t} />
+        <ChartFilters period={chartPeriod} setPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} t={t} language={language}/>
         <div className="space-y-8 mt-8">
           <ChartCard title={t.incomeVsExpenses} isOpen={cardVisibility.incomeVsExpenses} onToggle={() => toggleCardVisibility('incomeVsExpenses')}>
             {incomeExpenseData ? <IncomeExpenseChart data={incomeExpenseData} t={t} /> : <ChartSkeleton />}

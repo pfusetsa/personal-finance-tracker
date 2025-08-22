@@ -39,5 +39,8 @@
   "1 Year": "1 Year",
   "All Time": "All Time",
   "Custom": "Custom",
-  "Filters": "Filters"
+  "Filters": "Filters",
+  "fromAccount": "From Account",
+  "toAccount": "To Account",
+  "sameAccountError": "Cannot transfer to the same account."
 }

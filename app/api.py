@@ -132,9 +132,37 @@ def delete_category(category_id: int, options: Optional[CategoryDeleteOptions] =
 
 # --- Transactions ---
 @app.get("/transactions/")
-def get_all_transactions(page: int = 1, page_size: int = 10):
-    transactions_df, total_count = crud.get_all_transactions(page, page_size)
-    return {"transactions": transactions_df.to_dict(orient="records"), "total_count": total_count}
+def get_all_transactions(
+    page: int = 1, 
+    page_size: int = 10,
+    account_id: Optional[int] = None,
+    category_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    search: Optional[str] = None,
+    recurrent: Optional[bool] = None,
+    amount_min: Optional[float] = None, # New
+    amount_max: Optional[float] = None, # New
+    sort_by: Optional[str] = 'date',
+    sort_order: Optional[str] = 'desc'
+):
+    transactions_df, total_count = crud.get_all_transactions(
+        page=page, page_size=page_size, 
+        account_id=account_id, category_id=category_id, 
+        start_date=str(start_date) if start_date else None, 
+        end_date=str(end_date) if end_date else None, 
+        search_query=search,
+        is_recurrent=recurrent,
+        amount_min=amount_min,
+        amount_max=amount_max,
+        sort_by=sort_by, sort_order=sort_order
+    )
+    return {
+        "transactions": transactions_df.to_dict(orient="records"),
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size
+    }
 
 @app.post("/transactions/")
 def create_transaction(transaction: TransactionCreate):

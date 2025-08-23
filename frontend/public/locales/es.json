@@ -66,5 +66,22 @@
   "confirmDeletion": "Confirmar Eliminación",
   "accountAddedSuccess": "¡Cuenta añadida con éxito!",
   "accountUpdatedSuccess": "¡Cuenta actualizada con éxito!",
-  "accountDeletedSuccess": "¡Cuenta eliminada con éxito!"
+  "accountDeletedSuccess": "¡Cuenta eliminada con éxito!",
+  "filterAndSortByDate": "Filtrar y Ordenar por Fecha",
+  "sort": "Ordenar",
+  "newestToOldest": "Más Recientes a Antiguos",
+  "oldestToNewest": "Más Antiguos a Recientes",
+  "filterByDateRange": "Filtrar por Rango de Fechas",
+  "searchDescription": "Buscar Descripción",
+  "searchPlaceholder": "Buscar descripción...",
+  "filterByCategory": "Filtrar por Categoría",
+  "filterByAccount": "Filtrar por Cuenta",
+  "filterByRecurrent": "Filtrar por Recurrencia",
+  "all": "Todos",
+  "filterByAmount": "Filtrar por Cantidad",
+  "minAmount": "Cantidad mínima",
+  "maxAmount": "Cantidad máxima",
+  "apply": "Aplicar",
+  "clear": "Limpiar",
+  "account": "Cuenta"
 }

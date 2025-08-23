@@ -93,12 +93,54 @@ def get_category_by_name(category_name):
     return dict(category) if category else None
 
 # --- Read Functions (Transactions & Reports) ---
-def get_all_transactions(page=1, page_size=10):
+def get_all_transactions(
+    page=1, page_size=10, account_id=None, category_id=None, start_date=None, end_date=None, 
+    search_query=None, is_recurrent=None, amount_min=None, amount_max=None,
+    sort_by='date', sort_order='desc'
+):
     conn = get_db_connection()
+    base_query = "FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id"
+    where_clauses = []
+    params = []
+    
+    if account_id:
+        where_clauses.append("t.account_id = ?")
+        params.append(account_id)
+    if category_id:
+        where_clauses.append("t.category_id = ?")
+        params.append(category_id)
+    if start_date:
+        where_clauses.append("t.date >= ?")
+        params.append(start_date)
+    if end_date:
+        where_clauses.append("t.date <= ?")
+        params.append(end_date)
+    if search_query:
+        where_clauses.append("t.description LIKE ?")
+        params.append(f"%{search_query}%")
+    if is_recurrent is not None:
+        where_clauses.append("t.is_recurrent = ?")
+        params.append(is_recurrent)
+    if amount_min is not None:
+        where_clauses.append("t.amount >= ?")
+        params.append(amount_min)
+    if amount_max is not None:
+        where_clauses.append("t.amount <= ?")
+        params.append(amount_max)
+    
+    where_statement = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    # ... (rest of the function is the same)
+    valid_sort_columns = {'date': 't.date', 'amount': 't.amount'}
+    sort_column = valid_sort_columns.get(sort_by, 't.date')
+    order = 'DESC' if sort_order.lower() == 'desc' else 'ASC'
+    order_by_statement = f"ORDER BY {sort_column} {order}, t.id {order}"
+    count_query = f"SELECT COUNT(t.id) {base_query} {where_statement};"
+    total_count = conn.execute(count_query, params).fetchone()[0]
     offset = (page - 1) * page_size
-    query = "SELECT t.id, t.date, t.description, c.name as category, a.name as account, t.amount, t.currency, t.account_id, t.category_id, t.is_recurrent FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?;"
-    df = pd.read_sql_query(query, conn, params=[page_size, offset])
-    total_count = conn.execute("SELECT COUNT(id) FROM transactions").fetchone()[0]
+    select_statement = "SELECT t.id, t.date, t.description, c.name as category, a.name as account, t.amount, t.currency, t.account_id, t.category_id, t.is_recurrent"
+    paginated_query = f"{select_statement} {base_query} {where_statement} {order_by_statement} LIMIT ? OFFSET ?;"
+    paginated_params = params + [page_size, offset]
+    df = pd.read_sql_query(paginated_query, conn, params=paginated_params)
     conn.close()
     return df, total_count
 

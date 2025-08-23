@@ -121,7 +121,7 @@ function App() {
       <header>
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
           <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-gray-800 tracking-tight">{t.financeTracker}</h1></div>
+            <div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t.financeTracker}</h1></div>
             <div className="flex items-center space-x-4"><LanguageSelector language={language} setLanguage={setLanguage} /><SettingsMenu onManageCategories={() => openSettings('categories')} onManageAccounts={() => openSettings('accounts')} t={t} /></div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function SettingsMenu({ onManageCategories, t }) { // Accept t
+function SettingsMenu({ onManageCategories, onManageAccounts, t }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -12,11 +12,11 @@ function SettingsMenu({ onManageCategories, t }) { // Accept t
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
           <ul className="py-1">
-            <li
-              onClick={() => { onManageCategories(); setIsOpen(false); }}
-              className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
-            >
+            <li onClick={() => { onManageCategories(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
               {t.manageCategories}
+            </li>
+            <li onClick={() => { onManageAccounts(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
+              {t.manageAccounts}
             </li>
           </ul>
         </div>

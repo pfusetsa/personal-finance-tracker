@@ -50,5 +50,21 @@
   "previous": "Previous",
   "next": "Next",
   "pageOf": "Page {currentPage} of {totalPages}",
-  "aiAssistant": "AI Assistant"
+  "aiAssistant": "AI Assistant",
+  "transferDescription": "Transfer from {fromName} to {toName}",
+  "account_existsError": "The account '{name}' already exists.",
+  "account_in_useError": "This account has transactions and cannot be deleted.",
+  "manageAccounts": "Manage Accounts",
+  "newAccountPlaceholder": "New account name",
+  "accountInUseTitle": "Account in Use",
+  "accountInUseMessage": "The account \"{name}\" has {count} transactions. What would you like to do?",
+  "reassignTransactions": "Re-assign transactions to:",
+  "noOtherAccounts": "No other accounts available",
+  "target_account_requiredError": "A target account is required for re-assignment.",
+  "target_account_is_sameError": "Cannot re-assign to the same account.",
+  "deleteAllTransactions": "Delete all associated transactions",
+  "confirmDeletion": "Confirm Deletion",
+  "accountAddedSuccess": "Account added successfully!",
+  "accountUpdatedSuccess": "Account updated successfully!",
+  "accountDeletedSuccess": "Account deleted successfully!"
 }

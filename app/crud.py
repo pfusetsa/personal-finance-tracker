@@ -104,11 +104,22 @@ def get_all_transactions(page=1, page_size=10):
 
 def get_balance_report():
     conn = get_db_connection()
+    # This version uses our original, hardcoded EXCHANGE_RATES dictionary
     query = f"""
-    SELECT a.name, SUM(t.amount * CASE t.currency
-        WHEN 'EUR' THEN {EXCHANGE_RATES['EUR']} WHEN 'USD' THEN {EXCHANGE_RATES['USD']}
-        WHEN 'GBP' THEN {EXCHANGE_RATES['GBP']} ELSE 1.0 END
-    ) as balance FROM transactions t JOIN accounts a ON t.account_id = a.id GROUP BY a.name ORDER BY a.id;
+    SELECT
+        a.name,
+        COALESCE(SUM(
+            t.amount * CASE t.currency
+                WHEN 'EUR' THEN {EXCHANGE_RATES['EUR']}
+                WHEN 'USD' THEN {EXCHANGE_RATES['USD']}
+                WHEN 'GBP' THEN {EXCHANGE_RATES['GBP']}
+                ELSE 1.0
+            END
+        ), 0) as balance
+    FROM accounts a
+    LEFT JOIN transactions t ON a.id = t.account_id
+    GROUP BY a.name
+    ORDER BY a.name;
     """
     df = pd.read_sql_query(query, conn)
     total_balance = df['balance'].sum() if not df.empty else 0
@@ -218,6 +229,62 @@ def delete_transactions_by_category(category_id):
     conn = get_db_connection()
     try:
         conn.execute("DELETE FROM transactions WHERE category_id = ?", (category_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+def add_account(name):
+    """Adds a new account and returns its ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO accounts (name) VALUES (?)", (name,))
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+def update_account(account_id, name):
+    """Updates an existing account's name."""
+    conn = get_db_connection()
+    try:
+        conn.execute("UPDATE accounts SET name = ? WHERE id = ?", (name, account_id))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def delete_account(account_id):
+    """Deletes an account from the database."""
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def get_transaction_count_for_account(account_id):
+    """Counts how many transactions are associated with a specific account."""
+    conn = get_db_connection()
+    count = conn.execute("SELECT COUNT(id) FROM transactions WHERE account_id = ?", (account_id,)).fetchone()[0]
+    conn.close()
+    return count
+
+def reassign_transactions_from_account(from_account_id, to_account_id):
+    """Updates all transactions from one account to another."""
+    conn = get_db_connection()
+    try:
+        conn.execute("UPDATE transactions SET account_id = ? WHERE account_id = ?", (to_account_id, from_account_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+def delete_transactions_by_account(account_id):
+    """Deletes all transactions associated with a specific account."""
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM transactions WHERE account_id = ?", (account_id,))
         conn.commit()
     finally:
         conn.close()

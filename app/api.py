@@ -21,6 +21,7 @@ class TransactionCreate(BaseModel):
 
 class TransferCreate(BaseModel):
     date: date
+    description: str # Add this line
     amount: float
     from_account_id: int
     to_account_id: int
@@ -32,6 +33,20 @@ class ChatQuery(BaseModel):
 class CategoryDeleteOptions(BaseModel):
     strategy: str  # 'recategorize' or 'delete_transactions'
     target_category_id: Optional[int] = None
+
+class AccountUpdate(BaseModel):
+    name: str
+
+class CategoryDeleteOptions(BaseModel):
+    strategy: str  # 'recategorize' or 'delete_transactions'
+    target_category_id: Optional[int] = None
+
+class CategoryUpdate(BaseModel):
+    name: str
+
+class AccountDeleteOptions(BaseModel):
+    strategy: str  # 'reassign' or 'delete_transactions'
+    target_account_id: Optional[int] = None
 
 # --- FastAPI App Instance & CORS ---
 app = FastAPI(
@@ -56,13 +71,14 @@ def read_root():
 def get_all_accounts():
     return crud.get_accounts()
 
+@app.get("/accounts/{account_id}/transaction_count")
+def get_account_transaction_count(account_id: int):
+    count = crud.get_transaction_count_for_account(account_id)
+    return {"count": count}
+
 @app.get("/categories/")
 def get_all_categories():
     return crud.get_categories()
-
-# Add this new Pydantic model near the top with the others
-class CategoryUpdate(BaseModel):
-    name: str
 
 @app.post("/categories/", status_code=201)
 def create_category(category: CategoryUpdate):
@@ -71,7 +87,6 @@ def create_category(category: CategoryUpdate):
         new_category = {"id": category_id, "name": category.name}
         return new_category
     except sqlite3.IntegrityError:
-        # Send a key and params instead of a hardcoded string
         raise HTTPException(status_code=400, detail={"key": "category_exists", "params": {"name": category.name}})
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -86,18 +101,11 @@ def update_category(category_id: int, category: CategoryUpdate):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Add this new Pydantic model near the top with the others
-class CategoryDeleteOptions(BaseModel):
-    strategy: str  # 'recategorize' or 'delete_transactions'
-    target_category_id: Optional[int] = None
-
-# Add this new helper endpoint
 @app.get("/categories/{category_id}/transaction_count")
 def get_category_transaction_count(category_id: int):
     count = crud.get_transaction_count_for_category(category_id)
     return {"count": count}
 
-# Replace the existing delete_category endpoint with this one
 @app.delete("/categories/{category_id}", status_code=204)
 def delete_category(category_id: int, options: Optional[CategoryDeleteOptions] = None):
     count = crud.get_transaction_count_for_category(category_id)
@@ -119,7 +127,6 @@ def delete_category(category_id: int, options: Optional[CategoryDeleteOptions] =
         else:
             raise HTTPException(status_code=400, detail={"key": "invalid_strategy"})
 
-    # Finally, delete the now-empty category
     crud.delete_category(category_id)
     return Response(status_code=204)
 
@@ -168,8 +175,11 @@ def create_transfer(transfer: TransferCreate):
     try:
         # Call the service layer for business logic
         return transaction_service.create_transfer(
-            date=str(transfer.date), amount=transfer.amount,
-            from_account_id=transfer.from_account_id, to_account_id=transfer.to_account_id
+            date=str(transfer.date),
+            description=transfer.description, # Add this line
+            amount=transfer.amount,
+            from_account_id=transfer.from_account_id,
+            to_account_id=transfer.to_account_id
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -208,3 +218,50 @@ def get_recurrent_summary(start_date: date, end_date: date):
 def get_balance_evolution():
     report_df = crud.get_balance_evolution_report()
     return report_df.to_dict(orient="records")
+
+# --- Accounts ---
+@app.post("/accounts/", status_code=201)
+def create_account(account: AccountUpdate):
+    try:
+        account_id = crud.add_account(account.name)
+        new_account = {"id": account_id, "name": account.name}
+        return new_account
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail={"key": "account_exists", "params": {"name": account.name}})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/accounts/{account_id}")
+def update_account(account_id: int, account: AccountUpdate):
+    try:
+        crud.update_account(account_id, account.name)
+        return {"status": "success", "message": "Account updated."}
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail={"key": "account_exists", "params": {"name": account.name}})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/accounts/{account_id}", status_code=204)
+def delete_account(account_id: int, options: Optional[AccountDeleteOptions] = None):
+    count = crud.get_transaction_count_for_account(account_id)
+    
+    if count > 0:
+        if not options:
+            raise HTTPException(status_code=400, detail={"key": "deletion_strategy_required"})
+        
+        if options.strategy == 'reassign':
+            if not options.target_account_id:
+                raise HTTPException(status_code=400, detail={"key": "target_account_required"})
+            if account_id == options.target_account_id:
+                raise HTTPException(status_code=400, detail={"key": "target_account_is_same"})
+            crud.reassign_transactions_from_account(account_id, options.target_account_id)
+        
+        elif options.strategy == 'delete_transactions':
+            crud.delete_transactions_by_account(account_id)
+        
+        else:
+            raise HTTPException(status_code=400, detail={"key": "invalid_strategy"})
+
+    # Finally, delete the now-empty account
+    crud.delete_account(account_id)
+    return Response(status_code=204)

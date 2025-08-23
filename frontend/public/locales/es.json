@@ -50,5 +50,21 @@
   "previous": "Anterior",
   "next": "Siguiente",
   "pageOf": "Página {currentPage} de {totalPages}",
-  "aiAssistant": "Asistente de IA"
+  "aiAssistant": "Asistente de IA",
+  "transferDescription": "Transferencia de {fromName} a {toName}",
+  "account_existsError": "La cuenta '{name}' ya existe.",
+  "account_in_useError": "Esta cuenta tiene transacciones y no se puede eliminar.",
+  "manageAccounts": "Gestionar Cuentas",
+  "newAccountPlaceholder": "Nombre de nueva cuenta",
+  "accountInUseTitle": "Cuenta en Uso",
+  "accountInUseMessage": "La cuenta \"{name}\" tiene {count} transacciones. ¿Qué te gustaría hacer?",
+  "reassignTransactions": "Re-asignar transacciones a:",
+  "noOtherAccounts": "No hay otras cuentas disponibles",
+  "target_account_requiredError": "Se requiere una cuenta de destino para la re-asignación.",
+  "target_account_is_sameError": "No se puede re-asignar a la misma cuenta.",
+  "deleteAllTransactions": "Eliminar todas las transacciones asociadas",
+  "confirmDeletion": "Confirmar Eliminación",
+  "accountAddedSuccess": "¡Cuenta añadida con éxito!",
+  "accountUpdatedSuccess": "¡Cuenta actualizada con éxito!",
+  "accountDeletedSuccess": "¡Cuenta eliminada con éxito!"
 }

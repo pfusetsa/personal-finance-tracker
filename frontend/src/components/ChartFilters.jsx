@@ -3,6 +3,7 @@ import DatePicker from './DatePicker'; // Import our new component
 
 function ChartFilters({ period, setPeriod, customDates, setCustomDates, t, language }) { // Add language prop
   const timePeriods = [
+    { key: '1m', label: '1 Month' },
     { key: '6m', label: '6 Months' },
     { key: '1y', label: '1 Year' },
     { key: 'all', label: 'All Time' },

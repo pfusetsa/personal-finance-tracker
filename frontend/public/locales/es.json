@@ -90,5 +90,6 @@
   "transferAddedSuccess": "¡Transferencia añadida con éxito!",
   "transactionAddError": "Error al añadir la transacción.",
   "transactionUpdateError": "Error al actualizar la transacción.",
-  "transferAddError": "Error al añadir la transferencia."
+  "transferAddError": "Error al añadir la transferencia.",
+  "1 Month": "1 Mes"
 }

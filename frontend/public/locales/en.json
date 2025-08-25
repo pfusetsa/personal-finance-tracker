@@ -92,5 +92,6 @@
   "transferAddedSuccess": "Transfer added successfully!",
   "transactionAddError": "Failed to add transaction.",
   "transactionUpdateError": "Failed to update transaction.",
-  "transferAddError": "Failed to add transfer."
+  "transferAddError": "Failed to add transfer.",
+  "1 Month": "1 Month"
 }

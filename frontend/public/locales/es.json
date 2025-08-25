@@ -83,5 +83,12 @@
   "maxAmount": "Cantidad máxima",
   "apply": "Aplicar",
   "clear": "Limpiar",
-  "account": "Cuenta"
+  "account": "Cuenta",
+  "transactionAddedSuccess": "¡Transacción añadida con éxito!",
+  "transactionUpdatedSuccess": "¡Transacción actualizada con éxito!",
+  "transactionDeletedSuccess": "¡Transacción eliminada con éxito!",
+  "transferAddedSuccess": "¡Transferencia añadida con éxito!",
+  "transactionAddError": "Error al añadir la transacción.",
+  "transactionUpdateError": "Error al actualizar la transacción.",
+  "transferAddError": "Error al añadir la transferencia."
 }

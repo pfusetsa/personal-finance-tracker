@@ -85,5 +85,12 @@
   "clear": "Clear",
   "account": "Account",
   "allCategories": "All Categories",
-  "allAccounts": "All Accounts"
+  "allAccounts": "All Accounts",
+  "transactionAddedSuccess": "Transaction added successfully!",
+  "transactionUpdatedSuccess": "Transaction updated successfully!",
+  "transactionDeletedSuccess": "Transaction deleted successfully!",
+  "transferAddedSuccess": "Transfer added successfully!",
+  "transactionAddError": "Failed to add transaction.",
+  "transactionUpdateError": "Failed to update transaction.",
+  "transferAddError": "Failed to add transfer."
 }

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ConfirmationModal from './ConfirmationModal';
 import AdvancedDeleteModal from './AdvancedDeleteModal';
+import EditIcon from './icons/EditIcon';
+import DeleteIcon from './icons/DeleteIcon';
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -46,7 +48,7 @@ function CategoryManager({ onUpdate, t }) {
 
   const handleAddCategory = (e) => {
     e.preventDefault();
-    apiCall(`${API_URL}/categories/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCategoryName }) })
+    apiCall(`${API_URL}/categories/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCategoryName }), })
       .then(newCategory => {
         setCategories([...categories, newCategory]);
         setNewCategoryName('');
@@ -57,7 +59,7 @@ function CategoryManager({ onUpdate, t }) {
 
   const handleUpdateCategory = (e) => {
     e.preventDefault();
-    apiCall(`${API_URL}/categories/${editingCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingCategory.name }) })
+    apiCall(`${API_URL}/categories/${editingCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingCategory.name }), })
       .then(() => {
         setCategories(categories.map(cat => cat.id === editingCategory.id ? { ...cat, name: editingCategory.name } : cat));
         setEditingCategory(null);
@@ -118,9 +120,13 @@ function CategoryManager({ onUpdate, t }) {
             ) : (
               <>
                 <span>{category.name}</span>
-                <div className="space-x-2">
-                  <button onClick={() => setEditingCategory(category)} className="text-blue-600 hover:text-blue-800">{t.edit}</button>
-                  <button onClick={() => initiateDelete(category)} className="text-red-600 hover:text-red-800">{t.delete}</button>
+                <div className="flex items-center space-x-3">
+                  <button onClick={() => setEditingCategory(category)} className="text-blue-600 hover:text-blue-800" title={t.edit}>
+                    <EditIcon />
+                  </button>
+                  <button onClick={() => initiateDelete(category)} className="text-red-600 hover:text-red-800" title={t.delete}>
+                    <DeleteIcon />
+                  </button>
                 </div>
               </>
             )}

@@ -25,8 +25,7 @@ import AccountManager from './components/AccountManager.jsx';
 import BalanceReportSkeleton from './components/skeletons/BalanceReportSkeleton.jsx';
 import ChartSkeleton from './components/skeletons/ChartSkeleton.jsx';
 import TransactionListSkeleton from './components/skeletons/TransactionListSkeleton.jsx';
-
-// TransactionFilters is now deleted and not imported
+import ConfirmationModal from './components/ConfirmationModal.jsx';
 
 const API_URL = "http://127.0.0.1:8000";
 const PAGE_SIZE = 10;
@@ -45,6 +44,7 @@ function App() {
   const [translations, setTranslations] = useState(null);
   const [activeForm, setActiveForm] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [deletingTransaction, setDeletingTransaction] = useState(null);
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsView, setSettingsView] = useState('categories');
@@ -56,33 +56,18 @@ function App() {
   const [balanceEvolutionData, setBalanceEvolutionData] = useState(null);
   const [categoryChartType, setCategoryChartType] = useState('expense');
   const [cardVisibility, setCardVisibility] = useState(() => { try { const saved = localStorage.getItem('cardVisibility'); return saved ? JSON.parse(saved) : initialCardVisibility; } catch (e) { return initialCardVisibility; } });
-  
-  // Updated filters state
-  const [filters, setFilters] = useState({
-    accountId: '', categoryId: '',
-    searchQuery: '', isRecurrent: '',
-    startDate: '', endDate: '',
-    sortBy: 'date', sortOrder: 'desc'
-  });
 
   useEffect(() => { fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data)); localStorage.setItem('language', language); }, [language]);
   useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
-  useEffect(() => { const handleKeyDown = (event) => { if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) { return; } if (event.key === 'Escape') { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setShowChat(false); } if (event.key.toLowerCase() === 'n') { event.preventDefault(); setActiveForm('transaction'); } if (event.key.toLowerCase() === 't') { event.preventDefault(); setActiveForm('transfer'); } if (event.key.toLowerCase() === 'a') { event.preventDefault(); setShowChat(true); } }; window.addEventListener('keydown', handleKeyDown); return () => { window.removeEventListener('keydown', handleKeyDown); }; }, []);
+  useEffect(() => { const handleKeyDown = (event) => { if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) { return; } if (event.key === 'Escape') { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setShowChat(false); setDeletingTransaction(null); } if (event.key.toLowerCase() === 'n') { event.preventDefault(); setActiveForm('transaction'); } if (event.key.toLowerCase() === 't') { event.preventDefault(); setActiveForm('transfer'); } if (event.key.toLowerCase() === 'a') { event.preventDefault(); setShowChat(true); } }; window.addEventListener('keydown', handleKeyDown); return () => { window.removeEventListener('keydown', handleKeyDown); }; }, []);
   
+  // Simple, stable useEffect for fetching transactions
   useEffect(() => {
     setTransactionsData(null);
-    const params = new URLSearchParams({ page: currentPage, page_size: PAGE_SIZE, sort_by: filters.sortBy, sort_order: filters.sortOrder, });
-    if (filters.accountId) params.append('account_id', filters.accountId);
-    if (filters.categoryId) params.append('category_id', filters.categoryId);
-    if (filters.startDate) params.append('start_date', filters.startDate);
-    if (filters.endDate) params.append('end_date', filters.endDate);
-    if (filters.searchQuery) params.append('search', filters.searchQuery);
-    if (filters.isRecurrent !== '') params.append('recurrent', filters.isRecurrent);
-    
-    fetch(`${API_URL}/transactions/?${params.toString()}`, { cache: 'no-cache' })
+    fetch(`${API_URL}/transactions/?page=${currentPage}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' })
       .then(res => res.json())
       .then(data => setTransactionsData(data));
-  }, [currentPage, refreshTrigger, filters]);
+  }, [currentPage, refreshTrigger]);
 
   useEffect(() => {
     fetch(`${API_URL}/reports/balance/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceReportData(data));
@@ -90,7 +75,7 @@ function App() {
     fetch(`${API_URL}/accounts/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setAccounts(data));
     fetch(`${API_URL}/categories/`, { cache: 'no-cache' }).then(res => res.json()).then(data => { setCategories(data); const colorMap = {}; data.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; }); setCategoryColorMap(colorMap); });
   }, [refreshTrigger]);
-
+  
   useEffect(() => {
     let startDate, endDate = new Date().toISOString().split('T')[0];
     if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === '1y') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === 'all') { startDate = '1970-01-01'; } else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } else { return; }
@@ -100,74 +85,58 @@ function App() {
     fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setRecurrentData(data));
   }, [refreshTrigger, chartPeriod, customDates, categoryChartType]);
 
-  if (!translations) { return <div className="p-8 text-center">Loading TrakFin...</div>; }
-  
-  const t = translations;
   const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
   const showNotification = (message, type = 'success') => { setNotification({ message, type }); setTimeout(() => setNotification(null), 3000); };
   const handleDataUpdate = (message, type = 'success') => { setRefreshTrigger(c => c + 1); showNotification(message, type); };
   const handleTransactionSuccess = (message) => { handleDataUpdate(message); setActiveForm(null); setEditingTransaction(null); };
   const openSettings = (view) => { setSettingsView(view); setShowSettings(true); };
-  const fabActions = [
-    { label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction'), shortcut: 'N' },
-    { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer'), shortcut: 'T' },
-    { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true), shortcut: 'A' },
-  ];
+  
+  const confirmDeleteTransaction = () => {
+    if (!deletingTransaction) return;
+    fetch(`${API_URL}/transactions/${deletingTransaction.id}`, { method: 'DELETE' })
+      .then(res => {
+        if (res.ok) {
+          handleDataUpdate(t.transactionDeletedSuccess);
+          setDeletingTransaction(null);
+        }
+      });
+  };
+
+  if (!translations) { return <div className="p-8 text-center">Loading TrakFin...</div>; }
+
+  const t = translations;
+  const fabActions = [{ label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction'), shortcut: 'N' }, { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer'), shortcut: 'T' }, { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true), shortcut: 'A' }];
   const categoryChartFilterControl = ( <select value={categoryChartType} onChange={e => setCategoryChartType(e.target.value)} className="p-1 border rounded-md text-sm bg-gray-50"><option value="expense">{t.expenses}</option><option value="income">{t.income}</option><option value="both">{t.both}</option></select> );
-  const handleAddTransaction = (formData) => { fetch(`${API_URL}/transactions/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, currency: formData.currency, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.categoryAddedSuccess || 'Transaction added!')).catch(error => { console.error('Failed to add transaction:', error); showNotification('Failed to add transaction.', 'error'); }); };
-  const handleUpdateTransaction = (transactionId, formData) => { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, currency: formData.currency, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.categoryUpdatedSuccess || 'Transaction updated!')).catch(error => { console.error('Failed to update transaction:', error); showNotification('Failed to update transaction.', 'error'); }); };
-  const handleAddTransfer = (formData) => { const fromAccount = accounts.find(acc => acc.id === parseInt(formData.from_account_id)); const toAccount = accounts.find(acc => acc.id === parseInt(formData.to_account_id)); if (!fromAccount || !toAccount) { showNotification('Could not find accounts.', 'error'); return; } const description = t.transferDescription.replace('{fromName}', fromAccount.name).replace('{toName}', toAccount.name); fetch(`${API_URL}/transfers/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, description, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }) }).then(res => { if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); } return res.json(); }).then(() => handleTransactionSuccess(t.transferAddedSuccess || 'Transfer added!')).catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || t.transferAddError ||'Failed to add transfer.', 'error'); }); };
-  const handleDelete = (transactionId) => { if (window.confirm("Are you sure?")) { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'DELETE' }).then(res => res.ok && handleDataUpdate('Transaction deleted!')) } };
+  const handleAddTransaction = (formData) => { fetch(`${API_URL}/transactions/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, currency: formData.currency, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.transactionAddedSuccess)).catch(error => { console.error('Failed to add transaction:', error); showNotification(t.transactionAddError, 'error'); }); };
+  const handleUpdateTransaction = (transactionId, formData) => { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, currency: formData.currency, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.transactionUpdatedSuccess)).catch(error => { console.error('Failed to update transaction:', error); showNotification(t.transactionUpdateError, 'error'); }); };
+  const handleAddTransfer = (formData) => { const fromAccount = accounts.find(acc => acc.id === parseInt(formData.from_account_id)); const toAccount = accounts.find(acc => acc.id === parseInt(formData.to_account_id)); if (!fromAccount || !toAccount) { showNotification('Could not find accounts.', 'error'); return; } const description = t.transferDescription.replace('{fromName}', fromAccount.name).replace('{toName}', toAccount.name); fetch(`${API_URL}/transfers/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, description, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }) }).then(res => { if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); } return res.json(); }).then(() => handleTransactionSuccess(t.transferAddedSuccess)).catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || t.transferAddError, 'error'); }); };
 
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Notification message={notification?.message} type={notification?.type} />
       <header>
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t.financeTracker}</h1></div>
-            <div className="flex items-center space-x-4"><LanguageSelector language={language} setLanguage={setLanguage} /><SettingsMenu onManageCategories={() => openSettings('categories')} onManageAccounts={() => openSettings('accounts')} t={t} /></div>
-          </div>
+          <div className="flex justify-between items-center"><div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t.financeTracker}</h1></div><div className="flex items-center space-x-4"><LanguageSelector language={language} setLanguage={setLanguage} /><SettingsMenu onManageCategories={() => openSettings('categories')} onManageAccounts={() => openSettings('accounts')} t={t} /></div></div>
         </div>
       </header>
       
       {activeForm === 'transaction' && (<Modal title={t.addTransaction} onClose={() => setActiveForm(null)}><AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
       {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
       {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} t={t} language={language} /></Modal>)}
+      {deletingTransaction && (<ConfirmationModal message={`${t.deleteConfirmMessage} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} confirmText={t.delete} cancelText={t.cancel} />)}
       {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} t={t} />}
       {showSettings && (<Modal title={settingsView === 'categories' ? t.manageCategories : t.manageAccounts} onClose={() => setShowSettings(false)}>{settingsView === 'categories' ? <CategoryManager onUpdate={handleDataUpdate} t={t} /> : <AccountManager onUpdate={handleDataUpdate} t={t} />}</Modal>)}
       
       <main>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData} t={t} /> : <BalanceReportSkeleton />}</div>
-          <div className="lg:col-span-2"><ChartCard title={t.balanceEvolution} isOpen={true} onToggle={null}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <div className="h-64 flex items-center justify-center"><p>Loading chart...</p></div>}</ChartCard></div>
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8"><div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData} t={t} /> : <BalanceReportSkeleton />}</div><div className="lg:col-span-2"><ChartCard title={t.balanceEvolution} isOpen={true} onToggle={null}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <div className="h-64 flex items-center justify-center"><p>Loading chart...</p></div>}</ChartCard></div></div>
         <ChartFilters period={chartPeriod} setPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} t={t} language={language} />
         <div className="space-y-8 mt-8">
           <ChartCard title={t.incomeVsExpenses} isOpen={cardVisibility.incomeVsExpenses} onToggle={() => toggleCardVisibility('incomeVsExpenses')}>{incomeExpenseData ? <IncomeExpenseChart data={incomeExpenseData} t={t} /> : <ChartSkeleton />}</ChartCard>
           <ChartCard title={t.summaryByCategory} isOpen={cardVisibility.category} onToggle={() => toggleCardVisibility('category')} headerControls={categoryChartFilterControl}>{categorySummaryData ? <CategoryChart data={categorySummaryData} t={t} /> : <ChartSkeleton />}</ChartCard>
           <ChartCard title={t.recurrentTransactions} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>{recurrentData ? <RecurrentChart data={recurrentData} t={t} /> : <ChartSkeleton />}</ChartCard>
         </div>
-
         <div className="mt-8">
-          {/* Note: We remove the old filter bar here */}
-          {transactionsData ? (
-            <><TransactionList 
-                transactions={transactionsData.transactions} 
-                onEdit={setEditingTransaction} 
-                onDelete={handleDelete} 
-                categoryColorMap={categoryColorMap} 
-                t={t}
-                filters={filters}
-                setFilters={setFilters}
-                categories={categories}
-                accounts={accounts}
-                language={language}
-            />
-              <Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} t={t} /></>
-          ) : (
-            <TransactionListSkeleton />
-          )}
+          {transactionsData ? (<><TransactionList transactions={transactionsData.transactions} onEdit={setEditingTransaction} onDelete={setDeletingTransaction} categoryColorMap={categoryColorMap} t={t} /><Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} t={t} /></>) : ( <TransactionListSkeleton /> )}
         </div>
       </main>
 

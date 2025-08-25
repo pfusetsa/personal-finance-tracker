@@ -5,7 +5,7 @@ function Logo() {
     <img 
       src="/logo_TrackFin_1.png" 
       alt="TrakFin Logo"
-      className="h-12 w-12" 
+      className="h-16 w-16" 
     />
   );
 }

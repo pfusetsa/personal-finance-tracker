@@ -186,16 +186,26 @@ def get_balance_evolution_report():
 # --- Chart Functions (Updated to Exclude Transfers) ---
 def get_category_summary_for_chart(start_date: str, end_date: str, transaction_type: str = 'expense'):
     conn = get_db_connection()
-    type_filter = "t.amount < 0"
-    if transaction_type == 'income': type_filter = "t.amount > 0"
-    elif transaction_type == 'both': type_filter = "1=1"
     
-    query = f"""
-        SELECT c.name as category, SUM(ABS(t.amount)) as total
-        FROM transactions t JOIN categories c ON t.category_id = c.id
-        WHERE {type_filter} AND t.date BETWEEN ? AND ? AND c.name NOT IN ('Transfer', 'Transferencias')
-        GROUP BY c.name HAVING total > 0 ORDER BY total DESC;
+    # The main query now calculates SUM(t.amount) to get the net total
+    # It will be positive for net income, negative for net expense.
+    query = """
+        SELECT
+            c.name as category,
+            SUM(t.amount) as total
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.date BETWEEN ? AND ? AND c.name NOT IN ('Transfer', 'Transferencias')
     """
+    
+    # Add filters for income/expense if needed
+    if transaction_type == 'income':
+        query += " AND t.amount > 0"
+    elif transaction_type == 'expense':
+        query += " AND t.amount < 0"
+        
+    query += " GROUP BY c.name HAVING total != 0 ORDER BY ABS(total) DESC;"
+    
     df = pd.read_sql_query(query, conn, params=[start_date, end_date])
     conn.close()
     return df

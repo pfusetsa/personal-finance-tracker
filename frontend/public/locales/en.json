@@ -24,6 +24,7 @@
   "recurrentTransactions": "Recurrent Transactions",
   "balanceEvolution": "Balance Evolution",
   "editTransaction": "Edit Transaction",
+  "editTransfer": "Edit Transfer",
   "date": "Date",
   "description": "Description",
   "category": "Category",
@@ -89,6 +90,7 @@
   "transactionAddedSuccess": "Transaction added successfully!",
   "transactionUpdatedSuccess": "Transaction updated successfully!",
   "transactionDeletedSuccess": "Transaction deleted successfully!",
+  "transferDeletedSuccess": "Transfer deleted successfully!",
   "transferAddedSuccess": "Transfer added successfully!",
   "transactionAddError": "Failed to add transaction.",
   "transactionUpdateError": "Failed to update transaction.",
@@ -101,5 +103,7 @@
   "transferCategoryInUseMessage": "The category \"{name}\" is your active transfer category. To delete it, you must first select a new one.",
   "selectNewTransferCategory": "Select a new transfer category:",
   "categoryDeletedAndSettingUpdatedSuccess": "Category deleted and transfer setting updated!",
-  "transferCategoryUpdated": "Transfer category updated successfully!"
+  "transferCategoryUpdated": "Transfer category updated successfully!",
+  "transferUpdatedSuccess": "Transfer updated successfully!",
+  "transferUpdateError": "Failed to update transfer."
 }

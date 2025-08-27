@@ -2,6 +2,8 @@ import React from 'react';
 import { formatMoney } from '../utils.js';
 import EditIcon from './icons/EditIcon';
 import DeleteIcon from './icons/DeleteIcon';
+import TransferIcon from './icons/TransferIcon';
+
 
 function TransactionList({ transactions, onEdit, onDelete, categoryColorMap, t }) {
   if (transactions && transactions.length === 0) {
@@ -35,7 +37,12 @@ function TransactionList({ transactions, onEdit, onDelete, categoryColorMap, t }
               return (
                 <tr key={tx.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.date}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.description}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center space-x-2">
+                      {tx.transfer_id && <span title="This is a transfer"><TransferIcon /></span>}
+                      <span>{tx.description}</span>
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color.bg} ${color.text}`}>{tx.category}</span></td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.account}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{tx.is_recurrent ? t.yes : t.no}</td>

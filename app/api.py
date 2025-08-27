@@ -52,6 +52,12 @@ class AccountDeleteOptions(BaseModel):
 class SettingUpdate(BaseModel):
     value: str
 
+class TransferUpdate(BaseModel):
+    date: date
+    amount: float
+    from_account_id: int
+    to_account_id: int
+
 # --- FastAPI App Instance & CORS ---
 app = FastAPI(
     title="Personal Finance Tracker API",
@@ -227,6 +233,27 @@ def create_transfer(transfer: TransferCreate):
             from_account_id=transfer.from_account_id,
             to_account_id=transfer.to_account_id
         )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/transfers/{transfer_id}")
+def get_transfer_details(transfer_id: str):
+    transfer = crud.get_transfer(transfer_id)
+    if not transfer:
+        raise HTTPException(status_code=404, detail="Transfer not found.")
+    return transfer
+
+@app.put("/transfers/{transfer_id}")
+def update_transfer(transfer_id: str, transfer: TransferUpdate):
+    try:
+        crud.update_transfer(
+            transfer_id=transfer_id,
+            date=transfer.date,
+            amount=transfer.amount,
+            from_account_id=transfer.from_account_id,
+            to_account_id=transfer.to_account_id
+        )
+        return {"status": "success", "message": "Transfer updated."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

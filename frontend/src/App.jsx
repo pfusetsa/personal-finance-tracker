@@ -26,6 +26,8 @@ import ChartSkeleton from './components/skeletons/ChartSkeleton.jsx';
 import TransactionListSkeleton from './components/skeletons/TransactionListSkeleton.jsx';
 import ConfirmationModal from './components/ConfirmationModal.jsx';
 import TransferCategorySelector from './components/TransferCategorySelector.jsx';
+import EditTransferForm from './components/EditTransferForm.jsx';
+
 
 const API_URL = "http://127.0.0.1:8000";
 const PAGE_SIZE = 10;
@@ -45,6 +47,7 @@ function App() {
   const [activeForm, setActiveForm] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [deletingTransaction, setDeletingTransaction] = useState(null);
+  const [editingTransferId, setEditingTransferId] = useState(null);
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsView, setSettingsView] = useState('categories');
@@ -84,7 +87,21 @@ function App() {
   const handleDataUpdate = (message, type = 'success') => { setRefreshTrigger(c => c + 1); showNotification(message, type); };
   const handleTransactionSuccess = (message) => { handleDataUpdate(message); setActiveForm(null); setEditingTransaction(null); };
   const openSettings = (view) => { setSettingsView(view); setShowSettings(true); };
-  const confirmDeleteTransaction = () => { if (!deletingTransaction) return; fetch(`${API_URL}/transactions/${deletingTransaction.id}`, { method: 'DELETE' }).then(res => { if (res.ok) { handleDataUpdate(t.transactionDeletedSuccess); setDeletingTransaction(null); } }); };
+  const confirmDeleteTransaction = () => {
+    if (!deletingTransaction) return;
+
+    fetch(`${API_URL}/transactions/${deletingTransaction.id}`, { method: 'DELETE' })
+      .then(res => {
+        if (res.ok) {
+          // Check if the deleted item was a transfer to show the correct message
+          const message = deletingTransaction.transfer_id 
+            ? t.transferDeletedSuccess 
+            : t.transactionDeletedSuccess;
+          handleDataUpdate(message);
+          setDeletingTransaction(null);
+        }
+      });
+  };
   if (!translations) { return <div className="p-8 text-center">Loading TrakFin...</div>; }
 
   const t = translations;
@@ -93,6 +110,30 @@ function App() {
   const handleAddTransaction = (formData) => { fetch(`${API_URL}/transactions/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, currency: formData.currency, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.transactionAddedSuccess)).catch(error => { console.error('Failed to add transaction:', error); showNotification(t.transactionAddError, 'error'); }); };
   const handleUpdateTransaction = (transactionId, formData) => { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, currency: formData.currency, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.transactionUpdatedSuccess)).catch(error => { console.error('Failed to update transaction:', error); showNotification(t.transactionUpdateError, 'error'); }); };
   const handleAddTransfer = (formData) => { const fromAccount = accounts.find(acc => acc.id === parseInt(formData.from_account_id)); const toAccount = accounts.find(acc => acc.id === parseInt(formData.to_account_id)); if (!fromAccount || !toAccount) { showNotification('Could not find accounts.', 'error'); return; } const description = t.transferDescription.replace('{fromName}', fromAccount.name).replace('{toName}', toAccount.name); fetch(`${API_URL}/transfers/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, description, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }) }).then(res => { if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); } return res.json(); }).then(() => handleTransactionSuccess(t.transferAddedSuccess)).catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || t.transferAddError, 'error'); }); };
+  const handleUpdateTransfer = (transferId, formData) => {
+    fetch(`${API_URL}/transfers/${transferId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...formData,
+        amount: parseFloat(formData.amount),
+        from_account_id: parseInt(formData.from_account_id),
+        to_account_id: parseInt(formData.to_account_id),
+      })
+    })
+    .then(res => {
+      if (!res.ok) { throw new Error('Network response was not ok'); }
+      return res.json();
+    })
+    .then(() => {
+      handleDataUpdate(t.transferUpdatedSuccess);
+      setEditingTransferId(null);
+    })
+    .catch(error => {
+      console.error('Failed to update transfer:', error);
+      showNotification(t.transferUpdateError, 'error');
+    });
+  };
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -106,6 +147,18 @@ function App() {
       {activeForm === 'transaction' && (<Modal title={t.addTransaction} onClose={() => setActiveForm(null)}><AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
       {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
       {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} t={t} language={language} /></Modal>)}
+      {editingTransferId && (
+        <Modal title={t.editTransfer} onClose={() => setEditingTransferId(null)}>
+          <EditTransferForm
+            transferId={editingTransferId}
+            accounts={accounts}
+            onFormSubmit={handleUpdateTransfer}
+            onCancel={() => setEditingTransferId(null)}
+            t={t}
+            language={language}
+          />
+        </Modal>
+      )}
       {deletingTransaction && (<ConfirmationModal message={`${t.deleteConfirmMessage} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} confirmText={t.delete} cancelText={t.cancel} />)}
       {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} t={t} />}
       {showSettings && (
@@ -132,7 +185,7 @@ function App() {
           <ChartCard title={t.recurrentTransactions} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>{recurrentData ? <RecurrentChart data={recurrentData} t={t} /> : <ChartSkeleton />}</ChartCard>
         </div>
         <div className="mt-8">
-          {transactionsData ? (<><TransactionList transactions={transactionsData.transactions} onEdit={setEditingTransaction} onDelete={setDeletingTransaction} categoryColorMap={categoryColorMap} t={t} /><Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} t={t} /></>) : ( <TransactionListSkeleton /> )}
+          {transactionsData ? (<><TransactionList transactions={transactionsData.transactions} onEdit={(tx) => tx.transfer_id ? setEditingTransferId(tx.transfer_id) : setEditingTransaction(tx)} onDelete={setDeletingTransaction} categoryColorMap={categoryColorMap} t={t} /><Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} t={t} /></>) : ( <TransactionListSkeleton /> )}
         </div>
       </main>
 

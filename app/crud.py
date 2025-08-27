@@ -34,10 +34,12 @@ def get_db_schema_string():
     return schema_str
 
 # --- Create / Update / Delete ---
-def add_transaction(date, description, amount, currency, is_recurrent, account_id, category_id):
+def add_transaction(date, description, amount, currency, is_recurrent, account_id, category_id, transfer_id=None):
     conn = get_db_connection()
-    conn.execute("INSERT INTO transactions (date, description, amount, currency, is_recurrent, account_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                 (date, description, amount, currency, is_recurrent, account_id, category_id))
+    conn.execute(
+        "INSERT INTO transactions (date, description, amount, currency, is_recurrent, account_id, category_id, transfer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (date, description, amount, currency, is_recurrent, account_id, category_id, transfer_id)
+    )
     conn.commit()
     conn.close()
 
@@ -51,7 +53,19 @@ def update_transaction(transaction_id, date, description, amount, currency, is_r
 
 def delete_transaction(transaction_id):
     conn = get_db_connection()
-    conn.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
+    # First, check if this transaction is part of a transfer
+    cursor = conn.cursor()
+    cursor.execute("SELECT transfer_id FROM transactions WHERE id = ?", (transaction_id,))
+    result = cursor.fetchone()
+    transfer_id = result['transfer_id'] if result else None
+
+    if transfer_id:
+        # If it's a transfer, delete both linked transactions
+        conn.execute("DELETE FROM transactions WHERE transfer_id = ?", (transfer_id,))
+    else:
+        # Otherwise, just delete the single transaction
+        conn.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
+    
     conn.commit()
     conn.close()
     return True
@@ -129,7 +143,6 @@ def get_all_transactions(
         params.append(amount_max)
     
     where_statement = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-    # ... (rest of the function is the same)
     valid_sort_columns = {'date': 't.date', 'amount': 't.amount'}
     sort_column = valid_sort_columns.get(sort_by, 't.date')
     order = 'DESC' if sort_order.lower() == 'desc' else 'ASC'
@@ -137,7 +150,7 @@ def get_all_transactions(
     count_query = f"SELECT COUNT(t.id) {base_query} {where_statement};"
     total_count = conn.execute(count_query, params).fetchone()[0]
     offset = (page - 1) * page_size
-    select_statement = "SELECT t.id, t.date, t.description, c.name as category, a.name as account, t.amount, t.currency, t.account_id, t.category_id, t.is_recurrent"
+    select_statement = "SELECT t.id, t.date, t.description, c.name as category, a.name as account, t.amount, t.currency, t.account_id, t.category_id, t.is_recurrent, t.transfer_id" # Add t.transfer_id
     paginated_query = f"{select_statement} {base_query} {where_statement} {order_by_statement} LIMIT ? OFFSET ?;"
     paginated_params = params + [page_size, offset]
     df = pd.read_sql_query(paginated_query, conn, params=paginated_params)
@@ -377,3 +390,45 @@ def update_setting(key, value):
     conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(value)))
     conn.commit()
     conn.close()
+
+def get_transfer(transfer_id: str):
+    """Retrieves both transactions for a given transfer_id."""
+    conn = get_db_connection()
+    transfer_rows = conn.execute("SELECT * FROM transactions WHERE transfer_id = ? ORDER BY amount DESC", (transfer_id,)).fetchall()
+    conn.close()
+    
+    if len(transfer_rows) != 2:
+        return None
+        
+    income_tx = dict(transfer_rows[0])
+    expense_tx = dict(transfer_rows[1])
+    
+    return {
+        "transfer_id": transfer_id,
+        "date": income_tx['date'],
+        "amount": income_tx['amount'],
+        "from_account_id": expense_tx['account_id'],
+        "to_account_id": income_tx['account_id'],
+    }
+
+def update_transfer(transfer_id: str, date, amount: float, from_account_id: int, to_account_id: int):
+    """Updates the two transactions that make up a transfer."""
+    conn = get_db_connection()
+    # Get the IDs of the two transactions
+    transactions = conn.execute("SELECT id, amount FROM transactions WHERE transfer_id = ?", (transfer_id,)).fetchall()
+    if len(transactions) != 2:
+        raise ValueError("Transfer not found or is inconsistent.")
+        
+    expense_tx_id = next(tx['id'] for tx in transactions if tx['amount'] < 0)
+    income_tx_id = next(tx['id'] for tx in transactions if tx['amount'] > 0)
+
+    # Update the expense transaction
+    conn.execute("UPDATE transactions SET date = ?, amount = ?, account_id = ? WHERE id = ?",
+                 (date, -abs(amount), from_account_id, expense_tx_id))
+    # Update the income transaction
+    conn.execute("UPDATE transactions SET date = ?, amount = ?, account_id = ? WHERE id = ?",
+                 (date, abs(amount), to_account_id, income_tx_id))
+    
+    conn.commit()
+    conn.close()
+    return True

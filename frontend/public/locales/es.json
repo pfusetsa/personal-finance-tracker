@@ -24,6 +24,7 @@
   "recurrentTransactions": "Transacciones Recurrentes",
   "balanceEvolution": "Evolución del Saldo",
   "editTransaction": "Editar Transacción",
+  "editTransfer": "Editar Transferencia",
   "date": "Fecha",
   "description": "Descripción",
   "category": "Categoría",
@@ -99,5 +100,8 @@
   "transferCategoryInUseTitle": "Categoría de Transferencia en Uso",
   "transferCategoryInUseMessage": "La categoría \"{name}\" es tu categoría de transferencia activa. Para eliminarla, primero debes seleccionar una nueva.",
   "selectNewTransferCategory": "Selecciona una nueva categoría de transferencia:",
-  "categoryDeletedAndSettingUpdatedSuccess": "¡Categoría eliminada y ajuste de transferencia actualizado!"
+  "categoryDeletedAndSettingUpdatedSuccess": "¡Categoría eliminada y ajuste de transferencia actualizado!",
+  "transferUpdatedSuccess": "¡Transferencia actualizada con éxito!",
+  "transferUpdateError": "Error al actualizar la transferencia.",
+  "transferDeletedSuccess": "¡Transferencia eliminada con éxito!"
 }

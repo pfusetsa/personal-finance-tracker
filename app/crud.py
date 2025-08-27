@@ -240,16 +240,26 @@ def get_monthly_income_expense_summary(start_date: str, end_date: str):
     return df
 
 def get_recurrent_summary(start_date: str, end_date: str):
+
     conn = get_db_connection()
+    transfer_category_id = get_setting('transfer_category_id')
+
     query = """
         SELECT c.name as category,
             SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as income,
             SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as expenses
         FROM transactions t JOIN categories c ON t.category_id = c.id
-        WHERE t.is_recurrent = 1 AND t.date BETWEEN ? AND ? AND c.name NOT IN ('Transfer', 'Transferencias')
-        GROUP BY c.name HAVING income > 0 OR expenses > 0 ORDER BY expenses DESC, income DESC;
+        WHERE t.is_recurrent = 1 AND t.date BETWEEN ? AND ?
     """
-    df = pd.read_sql_query(query, conn, params=[start_date, end_date])
+    params = [start_date, end_date]
+    
+    if transfer_category_id:
+        query += " AND t.category_id != ?"
+        params.append(transfer_category_id)
+
+    query += " GROUP BY c.name HAVING income > 0 OR expenses > 0 ORDER BY expenses DESC, income DESC;"
+
+    df = pd.read_sql_query(query, conn, params=params)
     conn.close()
     return df
 

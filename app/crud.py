@@ -340,3 +340,17 @@ def delete_transactions_by_account(account_id):
         conn.commit()
     finally:
         conn.close()
+
+def get_setting(key):
+    """Retrieves a setting value from the database."""
+    conn = get_db_connection()
+    value = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    return value[0] if value else None
+
+def update_setting(key, value):
+    """Updates or inserts a setting value."""
+    conn = get_db_connection()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(value)))
+    conn.commit()
+    conn.close()

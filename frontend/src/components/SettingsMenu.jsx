@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function SettingsMenu({ onManageCategories, onManageAccounts, t }) {
+function SettingsMenu({ onManageCategories, onManageAccounts, onSetTransferCategory, t }) { // Add new prop
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -12,12 +12,9 @@ function SettingsMenu({ onManageCategories, onManageAccounts, t }) {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
           <ul className="py-1">
-            <li onClick={() => { onManageCategories(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
-              {t.manageCategories}
-            </li>
-            <li onClick={() => { onManageAccounts(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
-              {t.manageAccounts}
-            </li>
+            <li onClick={() => { onManageCategories(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">{t.manageCategories}</li>
+            <li onClick={() => { onManageAccounts(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">{t.manageAccounts}</li>
+            <li onClick={() => { onSetTransferCategory(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-t mt-1 pt-2">{t.manageTransferCategory}</li>
           </ul>
         </div>
       )}

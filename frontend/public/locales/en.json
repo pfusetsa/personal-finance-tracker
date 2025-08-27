@@ -93,5 +93,8 @@
   "transactionAddError": "Failed to add transaction.",
   "transactionUpdateError": "Failed to update transaction.",
   "transferAddError": "Failed to add transfer.",
-  "1 Month": "1 Month"
+  "1 Month": "1 Month",
+  "manageTransferCategory": "Set Transfer Category",
+  "transferCategoryInfo": "Select the category you use to record internal transfers between accounts. This category will be hidden from your income/expense reports.",
+  "transferCategoryUpdated": "Transfer category updated successfully!"
 }

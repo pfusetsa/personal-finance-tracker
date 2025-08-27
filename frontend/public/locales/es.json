@@ -91,5 +91,8 @@
   "transactionAddError": "Error al añadir la transacción.",
   "transactionUpdateError": "Error al actualizar la transacción.",
   "transferAddError": "Error al añadir la transferencia.",
-  "1 Month": "1 Mes"
+  "1 Month": "1 Mes",
+  "manageTransferCategory": "Configurar Categoría de Transferencia",
+  "transferCategoryInfo": "Selecciona la categoría que usas para registrar transferencias internas entre cuentas. Esta categoría se ocultará de tus informes de ingresos y gastos.",
+  "transferCategoryUpdated": "¡Categoría de transferencia actualizada con éxito!"
 }

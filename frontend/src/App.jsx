@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// Import all components...
 import { categoryColorPalette } from './utils.js';
 import Notification from './components/Notification';
 import BalanceReport from './components/BalanceReport';
@@ -26,6 +25,7 @@ import BalanceReportSkeleton from './components/skeletons/BalanceReportSkeleton.
 import ChartSkeleton from './components/skeletons/ChartSkeleton.jsx';
 import TransactionListSkeleton from './components/skeletons/TransactionListSkeleton.jsx';
 import ConfirmationModal from './components/ConfirmationModal.jsx';
+import TransferCategorySelector from './components/TransferCategorySelector.jsx';
 
 const API_URL = "http://127.0.0.1:8000";
 const PAGE_SIZE = 10;
@@ -60,30 +60,19 @@ function App() {
   useEffect(() => { fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data)); localStorage.setItem('language', language); }, [language]);
   useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
   useEffect(() => { const handleKeyDown = (event) => { if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) { return; } if (event.key === 'Escape') { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setShowChat(false); setDeletingTransaction(null); } if (event.key.toLowerCase() === 'n') { event.preventDefault(); setActiveForm('transaction'); } if (event.key.toLowerCase() === 't') { event.preventDefault(); setActiveForm('transfer'); } if (event.key.toLowerCase() === 'a') { event.preventDefault(); setShowChat(true); } }; window.addEventListener('keydown', handleKeyDown); return () => { window.removeEventListener('keydown', handleKeyDown); }; }, []);
-  
-  // Simple, stable useEffect for fetching transactions
   useEffect(() => {
     setTransactionsData(null);
-    fetch(`${API_URL}/transactions/?page=${currentPage}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' })
-      .then(res => res.json())
-      .then(data => setTransactionsData(data));
+    fetch(`${API_URL}/transactions/?page=${currentPage}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' }).then(res => res.json()).then(data => setTransactionsData(data));
   }, [currentPage, refreshTrigger]);
-
   useEffect(() => {
     fetch(`${API_URL}/reports/balance/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceReportData(data));
     fetch(`${API_URL}/reports/balance-evolution/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceEvolutionData(data));
     fetch(`${API_URL}/accounts/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setAccounts(data));
     fetch(`${API_URL}/categories/`, { cache: 'no-cache' }).then(res => res.json()).then(data => { setCategories(data); const colorMap = {}; data.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; }); setCategoryColorMap(colorMap); });
   }, [refreshTrigger]);
-  
   useEffect(() => {
     let startDate, endDate = new Date().toISOString().split('T')[0];
-    if (chartPeriod === '1m') { const d = new Date(); d.setMonth(d.getMonth() - 1); startDate = d.toISOString().split('T')[0]; } // Add this condition
-    else if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; } 
-    else if (chartPeriod === '1y') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); startDate = d.toISOString().split('T')[0]; } 
-    else if (chartPeriod === 'all') { startDate = '1970-01-01'; } 
-    else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } 
-    else { return; }
+    if (chartPeriod === '1m') { const d = new Date(); d.setMonth(d.getMonth() - 1); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === '1y') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === 'all') { startDate = '1970-01-01'; } else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } else { return; }
     setCategorySummaryData(null); setIncomeExpenseData(null); setRecurrentData(null);
     fetch(`${API_URL}/reports/category-summary/?start_date=${startDate}&end_date=${endDate}&transaction_type=${categoryChartType}`).then(res=>res.json()).then(data=>setCategorySummaryData(data));
     fetch(`${API_URL}/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setIncomeExpenseData(data));
@@ -95,18 +84,7 @@ function App() {
   const handleDataUpdate = (message, type = 'success') => { setRefreshTrigger(c => c + 1); showNotification(message, type); };
   const handleTransactionSuccess = (message) => { handleDataUpdate(message); setActiveForm(null); setEditingTransaction(null); };
   const openSettings = (view) => { setSettingsView(view); setShowSettings(true); };
-  
-  const confirmDeleteTransaction = () => {
-    if (!deletingTransaction) return;
-    fetch(`${API_URL}/transactions/${deletingTransaction.id}`, { method: 'DELETE' })
-      .then(res => {
-        if (res.ok) {
-          handleDataUpdate(t.transactionDeletedSuccess);
-          setDeletingTransaction(null);
-        }
-      });
-  };
-
+  const confirmDeleteTransaction = () => { if (!deletingTransaction) return; fetch(`${API_URL}/transactions/${deletingTransaction.id}`, { method: 'DELETE' }).then(res => { if (res.ok) { handleDataUpdate(t.transactionDeletedSuccess); setDeletingTransaction(null); } }); };
   if (!translations) { return <div className="p-8 text-center">Loading TrakFin...</div>; }
 
   const t = translations;
@@ -121,7 +99,7 @@ function App() {
       <Notification message={notification?.message} type={notification?.type} />
       <header>
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-          <div className="flex justify-between items-center"><div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t.financeTracker}</h1></div><div className="flex items-center space-x-4"><LanguageSelector language={language} setLanguage={setLanguage} /><SettingsMenu onManageCategories={() => openSettings('categories')} onManageAccounts={() => openSettings('accounts')} t={t} /></div></div>
+          <div className="flex justify-between items-center"><div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t.financeTracker}</h1></div><div className="flex items-center space-x-4"><LanguageSelector language={language} setLanguage={setLanguage} /><SettingsMenu onManageCategories={() => openSettings('categories')} onManageAccounts={() => openSettings('accounts')} onSetTransferCategory={() => openSettings('transferCategory')} t={t} /></div></div>
         </div>
       </header>
       
@@ -130,7 +108,20 @@ function App() {
       {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} t={t} language={language} /></Modal>)}
       {deletingTransaction && (<ConfirmationModal message={`${t.deleteConfirmMessage} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} confirmText={t.delete} cancelText={t.cancel} />)}
       {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} t={t} />}
-      {showSettings && (<Modal title={settingsView === 'categories' ? t.manageCategories : t.manageAccounts} onClose={() => setShowSettings(false)}>{settingsView === 'categories' ? <CategoryManager onUpdate={handleDataUpdate} t={t} /> : <AccountManager onUpdate={handleDataUpdate} t={t} />}</Modal>)}
+      {showSettings && (
+        <Modal 
+          title={
+            settingsView === 'categories' ? t.manageCategories :
+            settingsView === 'accounts' ? t.manageAccounts :
+            t.manageTransferCategory
+          } 
+          onClose={() => setShowSettings(false)}
+        >
+          {settingsView === 'categories' && <CategoryManager onUpdate={handleDataUpdate} t={t} />}
+          {settingsView === 'accounts' && <AccountManager onUpdate={handleDataUpdate} t={t} />}
+          {settingsView === 'transferCategory' && <TransferCategorySelector categories={categories} onUpdate={handleDataUpdate} t={t} />}
+        </Modal>
+      )}
       
       <main>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8"><div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData} t={t} /> : <BalanceReportSkeleton />}</div><div className="lg:col-span-2"><ChartCard title={t.balanceEvolution} isOpen={true} onToggle={null}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <div className="h-64 flex items-center justify-center"><p>Loading chart...</p></div>}</ChartCard></div></div>

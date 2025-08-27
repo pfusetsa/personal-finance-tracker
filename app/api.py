@@ -48,6 +48,9 @@ class AccountDeleteOptions(BaseModel):
     strategy: str  # 'reassign' or 'delete_transactions'
     target_account_id: Optional[int] = None
 
+class SettingUpdate(BaseModel):
+    value: str
+
 # --- FastAPI App Instance & CORS ---
 app = FastAPI(
     title="Personal Finance Tracker API",
@@ -290,6 +293,21 @@ def delete_account(account_id: int, options: Optional[AccountDeleteOptions] = No
         else:
             raise HTTPException(status_code=400, detail={"key": "invalid_strategy"})
 
-    # Finally, delete the now-empty account
     crud.delete_account(account_id)
     return Response(status_code=204)
+
+# --- Settings ---
+@app.get("/settings/transfer_category_id")
+def get_transfer_category_setting():
+    category_id = crud.get_setting('transfer_category_id')
+    if category_id is None:
+        raise HTTPException(status_code=404, detail="Transfer category setting not found.")
+    return {"value": category_id}
+
+@app.put("/settings/transfer_category_id")
+def update_transfer_category_setting(setting: SettingUpdate):
+    try:
+        crud.update_setting('transfer_category_id', setting.value)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -183,22 +183,26 @@ def get_balance_evolution_report():
     conn.close()
     return df
 
-# --- Chart Functions (Updated to Exclude Transfers) ---
+# --- Chart Functions ---
 def get_category_summary_for_chart(start_date: str, end_date: str, transaction_type: str = 'expense'):
+
     conn = get_db_connection()
-    
-    # The main query now calculates SUM(t.amount) to get the net total
-    # It will be positive for net income, negative for net expense.
+    transfer_category_id = get_setting('transfer_category_id')
+
     query = """
         SELECT
             c.name as category,
             SUM(t.amount) as total
         FROM transactions t
         JOIN categories c ON t.category_id = c.id
-        WHERE t.date BETWEEN ? AND ? AND c.name NOT IN ('Transfer', 'Transferencias')
+        WHERE t.date BETWEEN ? AND ?
     """
-    
-    # Add filters for income/expense if needed
+    params = [start_date, end_date]
+
+    if transfer_category_id:
+        query += " AND t.category_id != ?"
+        params.append(transfer_category_id)
+
     if transaction_type == 'income':
         query += " AND t.amount > 0"
     elif transaction_type == 'expense':
@@ -206,23 +210,32 @@ def get_category_summary_for_chart(start_date: str, end_date: str, transaction_t
         
     query += " GROUP BY c.name HAVING total != 0 ORDER BY ABS(total) DESC;"
     
-    df = pd.read_sql_query(query, conn, params=[start_date, end_date])
+    df = pd.read_sql_query(query, conn, params=params)
     conn.close()
     return df
 
 def get_monthly_income_expense_summary(start_date: str, end_date: str):
+
     conn = get_db_connection()
+    transfer_category_id = get_setting('transfer_category_id')
+    
     query = """
         SELECT
             strftime('%Y-%m', t.date) as month,
             SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as income,
             SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as expenses
         FROM transactions t
-        JOIN categories c ON t.category_id = c.id
-        WHERE t.date BETWEEN ? AND ? AND c.name NOT IN ('Transfer', 'Transferencias')
-        GROUP BY month ORDER BY month;
+        WHERE t.date BETWEEN ? AND ?
     """
-    df = pd.read_sql_query(query, conn, params=[start_date, end_date])
+    params = [start_date, end_date]
+
+    if transfer_category_id:
+        query += " AND t.category_id != ?"
+        params.append(transfer_category_id)
+        
+    query += " GROUP BY month ORDER BY month;"
+
+    df = pd.read_sql_query(query, conn, params=params)
     conn.close()
     return df
 

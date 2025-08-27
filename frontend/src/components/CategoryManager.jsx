@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ConfirmationModal from './ConfirmationModal';
 import AdvancedDeleteModal from './AdvancedDeleteModal';
+import TransferCategoryDeleteModal from './TransferCategoryDeleteModal'; // Import the new modal
 import EditIcon from './icons/EditIcon';
 import DeleteIcon from './icons/DeleteIcon';
 
@@ -8,13 +9,27 @@ const API_URL = "http://127.0.0.1:8000";
 
 function CategoryManager({ onUpdate, t }) {
   const [categories, setCategories] = useState([]);
+  const [transferCategoryId, setTransferCategoryId] = useState(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
   const [simpleDeleteTarget, setSimpleDeleteTarget] = useState(null);
   const [advancedDeleteTarget, setAdvancedDeleteTarget] = useState(null);
+  const [transferDeleteTarget, setTransferDeleteTarget] = useState(null);
+
+  const fetchCategories = () => {
+    fetch(`${API_URL}/categories/`).then(res => res.json()).then(data => setCategories(data));
+  };
+  
+  const fetchTransferCategorySetting = () => {
+    fetch(`${API_URL}/settings/transfer_category_id`)
+      .then(res => res.ok ? res.json() : Promise.resolve(null))
+      .then(data => setTransferCategoryId(data ? parseInt(data.value) : null))
+      .catch(() => setTransferCategoryId(null));
+  };
 
   useEffect(() => {
-    fetch(`${API_URL}/categories/`).then(res => res.json()).then(data => setCategories(data));
+    fetchCategories();
+    fetchTransferCategorySetting();
   }, []);
 
   const handleError = (error) => {
@@ -36,7 +51,7 @@ function CategoryManager({ onUpdate, t }) {
     }
     onUpdate(detail || 'An unknown error occurred.', 'error');
   };
-
+  
   const apiCall = (endpoint, options) => {
     return fetch(endpoint, options).then(async (res) => {
       if (!res.ok) {
@@ -68,18 +83,6 @@ function CategoryManager({ onUpdate, t }) {
       .catch(handleError);
   };
 
-  const initiateDelete = (category) => {
-    fetch(`${API_URL}/categories/${category.id}/transaction_count`).then(res => res.json())
-      .then(data => {
-        if (data.count > 0) {
-          setAdvancedDeleteTarget({ category, count: data.count });
-        } else {
-          setSimpleDeleteTarget(category);
-        }
-      })
-      .catch(handleError);
-  };
-
   const confirmSimpleDelete = () => {
     if (!simpleDeleteTarget) return;
     apiCall(`${API_URL}/categories/${simpleDeleteTarget.id}`, { method: 'DELETE' })
@@ -102,6 +105,40 @@ function CategoryManager({ onUpdate, t }) {
       .catch(err => { handleError(err); setAdvancedDeleteTarget(null); });
   };
 
+  const initiateDelete = (category) => {
+    // Check if the category is the active transfer category
+    if (category.id === transferCategoryId) {
+      setTransferDeleteTarget(category);
+      return;
+    }
+
+    fetch(`${API_URL}/categories/${category.id}/transaction_count`).then(res => res.json())
+      .then(data => {
+        if (data.count > 0) {
+          setAdvancedDeleteTarget({ category, count: data.count });
+        } else {
+          setSimpleDeleteTarget(category);
+        }
+      })
+      .catch(handleError);
+  };
+
+  // Handler for confirming the deletion of the transfer category
+  const confirmTransferCategoryDelete = (newTransferCategoryId) => {
+    const categoryId = transferDeleteTarget.id;
+    const options = { new_transfer_category_id: newTransferCategoryId };
+
+    apiCall(`${API_URL}/categories/${categoryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) })
+      .then(() => {
+        setCategories(categories.filter(cat => cat.id !== categoryId));
+        setTransferDeleteTarget(null);
+        onUpdate(t.categoryDeletedAndSettingUpdatedSuccess || "Category deleted and transfer setting updated!");
+        fetchTransferCategorySetting();
+      })
+      .catch(err => { handleError(err); setTransferDeleteTarget(null); });
+  };
+
+
   return (
     <div>
       <form onSubmit={handleAddCategory} className="flex space-x-2 mb-6">
@@ -119,14 +156,13 @@ function CategoryManager({ onUpdate, t }) {
               </form>
             ) : (
               <>
-                <span>{category.name}</span>
+                <div className="flex items-center space-x-2">
+                  <span>{category.name}</span>
+                  {category.id === transferCategoryId && <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{t.transfer || 'Transfer'}</span>}
+                </div>
                 <div className="flex items-center space-x-3">
-                  <button onClick={() => setEditingCategory(category)} className="text-blue-600 hover:text-blue-800" title={t.edit}>
-                    <EditIcon />
-                  </button>
-                  <button onClick={() => initiateDelete(category)} className="text-red-600 hover:text-red-800" title={t.delete}>
-                    <DeleteIcon />
-                  </button>
+                  <button onClick={() => setEditingCategory(category)} className="text-blue-600 hover:text-blue-800" title={t.edit}><EditIcon /></button>
+                  <button onClick={() => initiateDelete(category)} className="text-red-600 hover:text-red-800" title={t.delete}><DeleteIcon /></button>
                 </div>
               </>
             )}
@@ -136,6 +172,7 @@ function CategoryManager({ onUpdate, t }) {
       
       {simpleDeleteTarget && ( <ConfirmationModal message={`${t.deleteConfirmMessage} "${simpleDeleteTarget.name}"?`} onConfirm={confirmSimpleDelete} onCancel={() => setSimpleDeleteTarget(null)} confirmText={t.delete} cancelText={t.cancel} /> )}
       {advancedDeleteTarget && ( <AdvancedDeleteModal category={advancedDeleteTarget.category} transactionCount={advancedDeleteTarget.count} allCategories={categories} onConfirm={confirmAdvancedDelete} onCancel={() => setAdvancedDeleteTarget(null)} t={t} /> )}
+      {transferDeleteTarget && ( <TransferCategoryDeleteModal category={transferDeleteTarget} allCategories={categories} onConfirm={confirmTransferCategoryDelete} onCancel={() => setTransferDeleteTarget(null)} t={t} /> )}
     </div>
   );
 }

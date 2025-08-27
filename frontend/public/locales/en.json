@@ -96,5 +96,10 @@
   "1 Month": "1 Month",
   "manageTransferCategory": "Set Transfer Category",
   "transferCategoryInfo": "Select the category you use to record internal transfers between accounts. This category will be hidden from your income/expense reports.",
+  "transfer": "Transfer",
+  "transferCategoryInUseTitle": "Transfer Category in Use",
+  "transferCategoryInUseMessage": "The category \"{name}\" is your active transfer category. To delete it, you must first select a new one.",
+  "selectNewTransferCategory": "Select a new transfer category:",
+  "categoryDeletedAndSettingUpdatedSuccess": "Category deleted and transfer setting updated!",
   "transferCategoryUpdated": "Transfer category updated successfully!"
 }

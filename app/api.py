@@ -31,8 +31,9 @@ class ChatQuery(BaseModel):
     history: Optional[list] = []
 
 class CategoryDeleteOptions(BaseModel):
-    strategy: str  # 'recategorize' or 'delete_transactions'
+    strategy: Optional[str] = None
     target_category_id: Optional[int] = None
+    new_transfer_category_id: Optional[int] = None
 
 class AccountUpdate(BaseModel):
     name: str
@@ -111,8 +112,21 @@ def get_category_transaction_count(category_id: int):
 
 @app.delete("/categories/{category_id}", status_code=204)
 def delete_category(category_id: int, options: Optional[CategoryDeleteOptions] = None):
+    # Check if the category being deleted is the active transfer category
+    current_transfer_cid_str = crud.get_setting('transfer_category_id')
+    is_transfer_category = current_transfer_cid_str and int(current_transfer_cid_str) == category_id
+
+    if is_transfer_category:
+        if not options or not options.new_transfer_category_id:
+            raise HTTPException(status_code=400, detail="A new transfer category ID must be provided to delete the active one.")
+        if options.new_transfer_category_id == category_id:
+            raise HTTPException(status_code=400, detail="The new transfer category cannot be the same as the one being deleted.")
+        
+        # Update the setting to the new category ID first
+        crud.update_setting('transfer_category_id', options.new_transfer_category_id)
+
+    # Now, proceed with the original deletion logic for transactions
     count = crud.get_transaction_count_for_category(category_id)
-    
     if count > 0:
         if not options:
             raise HTTPException(status_code=400, detail={"key": "deletion_strategy_required"})
@@ -130,6 +144,7 @@ def delete_category(category_id: int, options: Optional[CategoryDeleteOptions] =
         else:
             raise HTTPException(status_code=400, detail={"key": "invalid_strategy"})
 
+    # Finally, delete the category itself
     crud.delete_category(category_id)
     return Response(status_code=204)
 

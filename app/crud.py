@@ -108,7 +108,7 @@ def get_category_by_name(category_name):
 
 # --- Read Functions (Transactions & Reports) ---
 def get_all_transactions(
-    page=1, page_size=10, account_id=None, category_id=None, start_date=None, end_date=None, 
+    page=1, page_size=10, account_ids=None, category_ids=None, start_date=None, end_date=None, 
     search_query=None, is_recurrent=None, amount_min=None, amount_max=None,
     sort_by='date', sort_order='desc'
 ):
@@ -117,12 +117,14 @@ def get_all_transactions(
     where_clauses = []
     params = []
     
-    if account_id:
-        where_clauses.append("t.account_id = ?")
-        params.append(account_id)
-    if category_id:
-        where_clauses.append("t.category_id = ?")
-        params.append(category_id)
+    if account_ids:
+        placeholders = ','.join('?' for _ in account_ids)
+        where_clauses.append(f"t.account_id IN ({placeholders})")
+        params.extend(account_ids)
+    if category_ids:
+        placeholders = ','.join('?' for _ in category_ids)
+        where_clauses.append(f"t.category_id IN ({placeholders})")
+        params.extend(category_ids)
     if start_date:
         where_clauses.append("t.date >= ?")
         params.append(start_date)
@@ -150,7 +152,7 @@ def get_all_transactions(
     count_query = f"SELECT COUNT(t.id) {base_query} {where_statement};"
     total_count = conn.execute(count_query, params).fetchone()[0]
     offset = (page - 1) * page_size
-    select_statement = "SELECT t.id, t.date, t.description, c.name as category, a.name as account, t.amount, t.currency, t.account_id, t.category_id, t.is_recurrent, t.transfer_id" # Add t.transfer_id
+    select_statement = "SELECT t.id, t.date, t.description, c.name as category, a.name as account, t.amount, t.currency, t.account_id, t.category_id, t.is_recurrent, t.transfer_id"
     paginated_query = f"{select_statement} {base_query} {where_statement} {order_by_statement} LIMIT ? OFFSET ?;"
     paginated_params = params + [page_size, offset]
     df = pd.read_sql_query(paginated_query, conn, params=paginated_params)

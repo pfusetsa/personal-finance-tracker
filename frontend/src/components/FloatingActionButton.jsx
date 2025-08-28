@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
-import Tooltip from './Tooltip'; // Import our new component
+import React, { useState, useEffect } from 'react';
+import Tooltip from './Tooltip';
 
-function FloatingActionButton({ actions }) {
+function FloatingActionButton({ actions, onToggle }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [hoveredAction, setHoveredAction] = useState(null); // State to track hover
+  const [hoveredAction, setHoveredAction] = useState(null);
+  
+  useEffect(() => {
+    if (onToggle) {
+      onToggle(isOpen);
+    }
+  }, [isOpen, onToggle]);
 
   const ICONS = {
     add: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>,
@@ -13,9 +19,8 @@ function FloatingActionButton({ actions }) {
   };
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end">
-      {/* Action buttons list */}
-      <div className="flex flex-col items-end space-y-2 mb-2">
+    <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end pointer-events-none">
+      <div className={`flex flex-col items-end space-y-2 mb-2 ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
         {actions.map((action, index) => (
           <div
             key={action.label}
@@ -24,7 +29,6 @@ function FloatingActionButton({ actions }) {
             onMouseEnter={() => setHoveredAction(action.label)}
             onMouseLeave={() => setHoveredAction(null)}
           >
-            {/* Custom Tooltip appears on hover */}
             {hoveredAction === action.label && <Tooltip text={`${action.label} (${action.shortcut})`} />}
             
             <button
@@ -38,10 +42,9 @@ function FloatingActionButton({ actions }) {
         ))}
       </div>
 
-      {/* Main FAB button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-16 h-16 bg-blue-600 rounded-full text-white shadow-lg flex items-center justify-center focus:outline-none hover:bg-blue-700 transition-transform duration-300"
+        className="w-16 h-16 bg-blue-600 rounded-full text-white shadow-lg flex items-center justify-center focus:outline-none hover:bg-blue-700 transition-transform duration-300 pointer-events-auto"
       >
         <div className={`transform transition-transform duration-300 ${isOpen ? 'rotate-45' : 'rotate-0'}`}>
           {ICONS.add}

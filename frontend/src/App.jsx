@@ -1,32 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { categoryColorPalette } from './utils.js';
-import Notification from './components/Notification';
-import BalanceReport from './components/BalanceReport';
-import TransactionList from './components/TransactionList';
-import Pagination from './components/Pagination';
+
+import AccountManager from './components/AccountManager.jsx';
 import AddTransactionForm from './components/AddTransactionForm';
-import EditTransactionForm from './components/EditTransactionForm';
 import AddTransferForm from './components/AddTransferForm.jsx';
-import Chat from './components/Chat.jsx';
+import BalanceEvolutionChart from './components/BalanceEvolutionChart.jsx';
+import BalanceReport from './components/BalanceReport';
+import BalanceReportSkeleton from './components/skeletons/BalanceReportSkeleton.jsx';
+import CategoryChart from './components/CategoryChart.jsx';
+import CategoryManager from './components/CategoryManager.jsx';
+import ChartCard from './components/ChartCard.jsx';
 import ChartFilters from './components/ChartFilters.jsx';
+import ChartSkeleton from './components/skeletons/ChartSkeleton.jsx';
+import Chat from './components/Chat.jsx';
+import ConfirmationModal from './components/ConfirmationModal.jsx';
+import EditTransactionForm from './components/EditTransactionForm';
+import EditTransferForm from './components/EditTransferForm.jsx';
+import FloatingActionButton from './components/FloatingActionButton.jsx';
+import IncomeExpenseChart from './components/IncomeExpenseChart.jsx';
 import LanguageSelector from './components/LanguageSelector.jsx';
 import Logo from './components/Logo.jsx';
 import Modal from './components/Modal.jsx';
-import IncomeExpenseChart from './components/IncomeExpenseChart.jsx';
-import CategoryChart from './components/CategoryChart.jsx';
+import Notification from './components/Notification';
+import Pagination from './components/Pagination';
 import RecurrentChart from './components/RecurrentChart.jsx';
-import FloatingActionButton from './components/FloatingActionButton.jsx';
-import ChartCard from './components/ChartCard.jsx';
-import BalanceEvolutionChart from './components/BalanceEvolutionChart.jsx';
-import CategoryManager from './components/CategoryManager.jsx';
 import SettingsMenu from './components/SettingsMenu.jsx';
-import AccountManager from './components/AccountManager.jsx';
-import BalanceReportSkeleton from './components/skeletons/BalanceReportSkeleton.jsx';
-import ChartSkeleton from './components/skeletons/ChartSkeleton.jsx';
+import Spinner from './components/Spinner';
+import TransactionFilters from './components/TransactionFilters';
+import TransactionList from './components/TransactionList';
 import TransactionListSkeleton from './components/skeletons/TransactionListSkeleton.jsx';
-import ConfirmationModal from './components/ConfirmationModal.jsx';
 import TransferCategorySelector from './components/TransferCategorySelector.jsx';
-import EditTransferForm from './components/EditTransferForm.jsx';
 
 
 const API_URL = "http://127.0.0.1:8000";
@@ -51,22 +54,29 @@ function App() {
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsView, setSettingsView] = useState('categories');
-  const [chartPeriod, setChartPeriod] = useState('6m');
+  const [chartPeriod, setChartPeriod] = useState('all');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
   const [incomeExpenseData, setIncomeExpenseData] = useState(null);
   const [categorySummaryData, setCategorySummaryData] = useState(null);
   const [recurrentData, setRecurrentData] = useState(null);
   const [balanceEvolutionData, setBalanceEvolutionData] = useState(null);
   const [categoryChartType, setCategoryChartType] = useState('expense');
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [isFabOpen, setIsFabOpen] = useState(false);
   const [cardVisibility, setCardVisibility] = useState(() => { try { const saved = localStorage.getItem('cardVisibility'); return saved ? JSON.parse(saved) : initialCardVisibility; } catch (e) { return initialCardVisibility; } });
+  const [filters, setFilters] = useState({
+    accountIds: [],
+    categoryIds: [],
+    dateRange: { start: '', end: '' },
+    description: '',
+    recurrent: null, // can be true, false, or null for 'all'
+    amountRange: { min: '', max: '' },
+    sort: { by: 'date', order: 'desc' },
+  });
 
   useEffect(() => { fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data)); localStorage.setItem('language', language); }, [language]);
   useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
   useEffect(() => { const handleKeyDown = (event) => { if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) { return; } if (event.key === 'Escape') { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setShowChat(false); setDeletingTransaction(null); } if (event.key.toLowerCase() === 'n') { event.preventDefault(); setActiveForm('transaction'); } if (event.key.toLowerCase() === 't') { event.preventDefault(); setActiveForm('transfer'); } if (event.key.toLowerCase() === 'a') { event.preventDefault(); setShowChat(true); } }; window.addEventListener('keydown', handleKeyDown); return () => { window.removeEventListener('keydown', handleKeyDown); }; }, []);
-  useEffect(() => {
-    setTransactionsData(null);
-    fetch(`${API_URL}/transactions/?page=${currentPage}&page_size=${PAGE_SIZE}`, { cache: 'no-cache' }).then(res => res.json()).then(data => setTransactionsData(data));
-  }, [currentPage, refreshTrigger]);
   useEffect(() => {
     fetch(`${API_URL}/reports/balance/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceReportData(data));
     fetch(`${API_URL}/reports/balance-evolution/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceEvolutionData(data));
@@ -81,7 +91,52 @@ function App() {
     fetch(`${API_URL}/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setIncomeExpenseData(data));
     fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setRecurrentData(data));
   }, [refreshTrigger, chartPeriod, customDates, categoryChartType]);
+  useEffect(() => {
 
+    setIsFiltering(true);
+    const startTime = Date.now();
+    const MIN_DISPLAY_TIME = 300; 
+
+    const params = new URLSearchParams({
+      page: currentPage,
+      page_size: PAGE_SIZE,
+      sort_by: filters.sort.by,
+      sort_order: filters.sort.order,
+    });
+
+    if (filters.description) params.append('search', filters.description);
+    if (filters.dateRange.start) params.append('start_date', filters.dateRange.start);
+    if (filters.dateRange.end) params.append('end_date', filters.dateRange.end);
+    if (filters.recurrent !== null) params.append('recurrent', filters.recurrent);
+    if (filters.amountRange.min) params.append('amount_min', filters.amountRange.min);
+    if (filters.amountRange.max) params.append('amount_max', filters.amountRange.max);
+    
+    filters.accountIds.forEach(id => params.append('account_ids', id));
+    filters.categoryIds.forEach(id => params.append('category_ids', id));
+
+    const queryString = params.toString();
+
+    fetch(`${API_URL}/transactions/?${queryString}`, { cache: 'no-cache' })
+      .then(res => res.json())
+      .then(data => {
+        const elapsedTime = Date.now() - startTime;
+        const delay = Math.max(MIN_DISPLAY_TIME - elapsedTime, 0);
+        
+        setTimeout(() => {
+          setTransactionsData(data);
+          setIsFiltering(false);
+        }, delay);
+      })
+      .catch(() => setIsFiltering(false));
+  }, [currentPage, refreshTrigger, filters]);
+
+  const handleFilterChange = useCallback((newFilterValues) => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      ...newFilterValues,
+    }));
+    setCurrentPage(1); // Reset to page 1 whenever filters change
+  }, []);
   const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
   const showNotification = (message, type = 'success') => { setNotification({ message, type }); setTimeout(() => setNotification(null), 3000); };
   const handleDataUpdate = (message, type = 'success') => { setRefreshTrigger(c => c + 1); showNotification(message, type); };
@@ -185,11 +240,36 @@ function App() {
           <ChartCard title={t.recurrentTransactions} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>{recurrentData ? <RecurrentChart data={recurrentData} t={t} /> : <ChartSkeleton />}</ChartCard>
         </div>
         <div className="mt-8">
-          {transactionsData ? (<><TransactionList transactions={transactionsData.transactions} onEdit={(tx) => tx.transfer_id ? setEditingTransferId(tx.transfer_id) : setEditingTransaction(tx)} onDelete={setDeletingTransaction} categoryColorMap={categoryColorMap} t={t} /><Pagination currentPage={currentPage} totalItems={transactionsData.total_count} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} t={t} /></>) : ( <TransactionListSkeleton /> )}
+          {transactionsData ? (
+            <>
+              <TransactionList 
+                transactions={transactionsData.transactions} 
+                onEdit={(tx) => tx.transfer_id ? setEditingTransferId(tx.transfer_id) : setEditingTransaction(tx)} 
+                onDelete={setDeletingTransaction} 
+                categoryColorMap={categoryColorMap}
+                t={t}
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                accounts={accounts}
+                categories={categories}
+                language={language}
+                isFiltering={isFiltering}
+              />
+              <Pagination 
+                currentPage={currentPage} 
+                totalItems={transactionsData.total_count} 
+                itemsPerPage={PAGE_SIZE} 
+                onPageChange={setCurrentPage} 
+                t={t} 
+              />
+            </>
+          ) : ( <TransactionListSkeleton /> )}
         </div>
       </main>
 
-      <FloatingActionButton actions={fabActions} />
+      <div className="fixed bottom-8 right-8 z-40">
+        <FloatingActionButton actions={fabActions} onToggle={setIsFabOpen} />
+      </div>
     </div>
   );
 }

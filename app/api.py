@@ -1,13 +1,13 @@
 # app/api.py
+import sqlite3
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date
 from fastapi.middleware.cors import CORSMiddleware
-import sqlite3
-
+from fastapi import FastAPI, HTTPException, Response, Query
 from . import crud
-from .services import transaction_service, ai_service # Import services
+from .services import transaction_service, ai_service
 
 # --- Pydantic Models ---
 class TransactionCreate(BaseModel):
@@ -159,20 +159,21 @@ def delete_category(category_id: int, options: Optional[CategoryDeleteOptions] =
 def get_all_transactions(
     page: int = 1, 
     page_size: int = 10,
-    account_id: Optional[int] = None,
-    category_id: Optional[int] = None,
+    account_ids: Optional[list[int]] = Query(None),
+    category_ids: Optional[list[int]] = Query(None),
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     search: Optional[str] = None,
     recurrent: Optional[bool] = None,
-    amount_min: Optional[float] = None, # New
-    amount_max: Optional[float] = None, # New
+    amount_min: Optional[float] = None,
+    amount_max: Optional[float] = None,
     sort_by: Optional[str] = 'date',
     sort_order: Optional[str] = 'desc'
 ):
     transactions_df, total_count = crud.get_all_transactions(
         page=page, page_size=page_size, 
-        account_id=account_id, category_id=category_id, 
+        account_ids=account_ids,
+        category_ids=category_ids,
         start_date=str(start_date) if start_date else None, 
         end_date=str(end_date) if end_date else None, 
         search_query=search,

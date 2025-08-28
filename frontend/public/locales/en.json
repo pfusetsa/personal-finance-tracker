@@ -105,5 +105,10 @@
   "categoryDeletedAndSettingUpdatedSuccess": "Category deleted and transfer setting updated!",
   "transferCategoryUpdated": "Transfer category updated successfully!",
   "transferUpdatedSuccess": "Transfer updated successfully!",
-  "transferUpdateError": "Failed to update transfer."
+  "transferUpdateError": "Failed to update transfer.",
+  "search": "Search...",
+  "datePickerFromPlaceholder": "From date",
+  "datePickerToPlaceholder": "To date",
+  "noMatchingTransactions": "No transactions match the current filters.",
+  "noMatchingTransactionsSubtitle":"Try adjusting your filters or adding a new transaction."
 }

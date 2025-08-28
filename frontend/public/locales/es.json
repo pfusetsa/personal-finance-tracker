@@ -103,5 +103,10 @@
   "categoryDeletedAndSettingUpdatedSuccess": "¡Categoría eliminada y ajuste de transferencia actualizado!",
   "transferUpdatedSuccess": "¡Transferencia actualizada con éxito!",
   "transferUpdateError": "Error al actualizar la transferencia.",
-  "transferDeletedSuccess": "¡Transferencia eliminada con éxito!"
+  "transferDeletedSuccess": "¡Transferencia eliminada con éxito!",
+  "search": "Buscar...",
+  "datePickerFromPlaceholder": "Fecha de inicio",
+  "datePickerToPlaceholder": "Fecha de fin",
+  "noMatchingTransactions": "No hay transacciones que coincidan con los filtros actuales.",
+  "noMatchingTransactionsSubtitle":"Intenta ajustando tus filtros o añadiendo una transacción nueva."
 }

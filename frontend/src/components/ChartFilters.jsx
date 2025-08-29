@@ -31,8 +31,8 @@ function ChartFilters({ period, setPeriod, customDates, setCustomDates, t, langu
       </div>
       {period === 'custom' && (
         <div className="flex items-center space-x-2 mt-4">
-          <DatePicker selectedDate={customDates.start} onChange={(date) => handleDateChange(date, 'start')} language={language} />
-          <DatePicker selectedDate={customDates.end} onChange={(date) => handleDateChange(date, 'end')} language={language} />
+          <DatePicker selectedDate={customDates.start} onChange={(date) => handleDateChange(date, 'start')} language={language} placeholderText={t.datePickerFromPlaceholder} />
+          <DatePicker selectedDate={customDates.end} onChange={(date) => handleDateChange(date, 'end')} language={language} placeholderText={t.datePickerToPlaceholder}/>
         </div>
       )}
     </div>

@@ -110,5 +110,15 @@
   "datePickerFromPlaceholder": "From date",
   "datePickerToPlaceholder": "To date",
   "noMatchingTransactions": "No transactions match the current filters.",
-  "noMatchingTransactionsSubtitle":"Try adjusting your filters or adding a new transaction."
+  "noMatchingTransactionsSubtitle":"Try adjusting your filters or adding a new transaction.",
+  "migrationModalTitle": "Update Transfer Category",
+  "migrationModalMessage": "You're changing your transfer category! What would you like to do with existing transactions in the old category?",
+  "moveAllButton": "Move All to New Category",
+  "moveAllDescription": "Re-categorize all past transfer transactions to the new category. Recommended for consistency.",
+  "keepUnchangedButton": "Keep Unchanged",
+  "keepUnchangedDescription": "Only use the new category for future transfers. Old transactions will remain in the old category.",
+  "categoryInUseTitle": "Category in Use",
+  "categoryInUseMessage": "The category \"{name}\" is used by {count} transactions. What would you like to do?",
+  "recategorizeTransactions": "Re-categorize transactions to:",
+  "noOtherCategories": "No other categories available"
 }

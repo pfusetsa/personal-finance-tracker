@@ -50,7 +50,9 @@ class AccountDeleteOptions(BaseModel):
     target_account_id: Optional[int] = None
 
 class SettingUpdate(BaseModel):
-    value: str
+    value: str  # The new category ID
+    original_value: Optional[str] = None # The old category ID
+    migration_strategy: Optional[str] = None # 'move_all' or 'keep_unchanged'
 
 class TransferUpdate(BaseModel):
     date: date
@@ -350,7 +352,15 @@ def get_transfer_category_setting():
 @app.put("/settings/transfer_category_id")
 def update_transfer_category_setting(setting: SettingUpdate):
     try:
+        if setting.migration_strategy == 'move_all' and setting.original_value:
+            # If the strategy is to move, perform the recategorization first
+            crud.recategorize_transactions(
+                from_category_id=int(setting.original_value),
+                to_category_id=int(setting.value)
+            )
+        
+        # Then, update the setting to point to the new category
         crud.update_setting('transfer_category_id', setting.value)
-        return {"status": "success"}
+        return {"status": "success", "message": "Setting updated."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

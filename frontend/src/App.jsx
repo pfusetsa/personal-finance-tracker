@@ -227,7 +227,7 @@ function App() {
         >
           {settingsView === 'categories' && <CategoryManager onUpdate={handleDataUpdate} t={t} />}
           {settingsView === 'accounts' && <AccountManager onUpdate={handleDataUpdate} t={t} />}
-          {settingsView === 'transferCategory' && <TransferCategorySelector categories={categories} onUpdate={handleDataUpdate} t={t} />}
+          {settingsView === 'transferCategory' && <TransferCategorySelector categories={categories} onUpdate={handleDataUpdate} t={t} onComplete={() => setShowSettings(false)} />}
         </Modal>
       )}
       

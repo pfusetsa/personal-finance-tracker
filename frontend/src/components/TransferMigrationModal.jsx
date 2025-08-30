@@ -23,6 +23,13 @@ function TransferMigrationModal({ onConfirm, onCancel, t }) {
               <h4 className="font-semibold">{t.keepUnchangedButton}</h4>
               <p className="text-sm text-gray-600">{t.keepUnchangedDescription}</p>
             </button>
+            <button 
+              onClick={() => onConfirm('per_transaction')}
+              className="w-full text-left p-4 border rounded-lg hover:bg-gray-100"
+            >
+              <h4 className="font-semibold">{t.perTransactionChoice}</h4>
+              <p className="text-sm text-gray-600">{t.perTransactionChoiceDescription}</p>
+            </button>
           </div>
         </div>
         

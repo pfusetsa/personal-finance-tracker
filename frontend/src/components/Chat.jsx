@@ -61,7 +61,7 @@ function Chat({ apiUrl, onCancel, t }) {
         <div ref={messagesEndRef} />
       </div>
       <div className="p-4 border-t flex flex-shrink-0">
-        <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} className="flex-1 p-2 border rounded-l-lg" placeholder="Ask about your finances..." disabled={isLoading} />
+        <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} className="flex-1 p-2 border rounded-l-lg" placeholder={t.askAIPlaceholder} disabled={isLoading} />
         <button onClick={handleSend} disabled={isLoading} className="px-4 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 disabled:bg-blue-300">Send</button>
       </div>
     </div>

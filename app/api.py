@@ -60,6 +60,14 @@ class TransferUpdate(BaseModel):
     from_account_id: int
     to_account_id: int
 
+class TransactionInstruction(BaseModel):
+    transaction_id: int
+    action: str  # 'delete', 'recategorize', or 'keep'
+    target_category_id: Optional[int] = None
+
+class BatchProcessRequest(BaseModel):
+    instructions: list[TransactionInstruction]
+
 # --- FastAPI App Instance & CORS ---
 app = FastAPI(
     title="Personal Finance Tracker API",
@@ -223,6 +231,17 @@ def update_transaction(transaction_id: int, transaction: TransactionCreate):
 def delete_transaction(transaction_id: int):
     crud.delete_transaction(transaction_id)
     return Response(status_code=204)
+
+@app.post("/transactions/batch-process")
+def batch_process_transactions(request: BatchProcessRequest):
+    """Processes a batch of actions on multiple transactions."""
+    try:
+        result = crud.process_batch_instructions([i.dict() for i in request.instructions])
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
 
 # --- Transfers ---
 @app.post("/transfers/")

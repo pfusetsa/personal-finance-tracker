@@ -53,13 +53,23 @@ function AdvancedDeleteModal({ category, transactionCount, allCategories, onConf
               </select>
             </div>
 
-            {/* Option 2: Delete All */}
+            {/* Option 2: Choose Per Transaction */}
+            <div>
+              <label className="flex items-center space-x-2">
+                <input type="radio" name="delete_strategy" value="per_transaction" checked={strategy === 'per_transaction'} onChange={() => setStrategy('per_transaction')} />
+                <span>{t.perTransactionChoice}</span>
+              </label>
+            </div>
+
+            {/* Option 3: Delete All */}
             <div>
               <label className="flex items-center space-x-2">
                 <input type="radio" name="delete_strategy" value="delete_transactions" checked={strategy === 'delete_transactions'} onChange={() => setStrategy('delete_transactions')} />
                 <span className="text-red-700 font-medium">{t.deleteAllTransactions || 'Delete all associated transactions'}</span>
               </label>
             </div>
+
+            
           </div>
         </div>
         

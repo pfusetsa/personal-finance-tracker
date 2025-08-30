@@ -84,7 +84,7 @@ def add_category(category_name):
 # --- Read Functions (Lookups) ---
 def get_accounts():
     conn = get_db_connection()
-    accounts = conn.execute("SELECT id, name FROM accounts ORDER BY id").fetchall()
+    accounts = conn.execute("SELECT id, name FROM accounts ORDER BY name COLLATE NOCASE").fetchall()
     conn.close()
     return [dict(row) for row in accounts]
 
@@ -96,7 +96,7 @@ def get_account_by_id(account_id):
 
 def get_categories():
     conn = get_db_connection()
-    categories = conn.execute("SELECT id, name FROM categories ORDER BY id").fetchall()
+    categories = conn.execute("SELECT id, name FROM categories ORDER BY name COLLATE NOCASE").fetchall()
     conn.close()
     return [dict(row) for row in categories]
 
@@ -434,3 +434,40 @@ def update_transfer(transfer_id: str, date, amount: float, from_account_id: int,
     conn.commit()
     conn.close()
     return True
+
+def process_batch_instructions(instructions: list):
+    """
+    Processes a list of instructions (e.g., delete, recategorize) for multiple
+    transactions within a single database transaction for data integrity.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("BEGIN TRANSACTION;")
+        
+        processed_ids = []
+        for instruction in instructions:
+            action = instruction.get('action')
+            tx_id = instruction.get('transaction_id')
+            
+            if action == 'delete':
+                cursor.execute("DELETE FROM transactions WHERE id = ?", (tx_id,))
+            elif action == 'recategorize':
+                target_id = instruction.get('target_category_id')
+                if not target_id:
+                    raise ValueError(f"Missing target_category_id for transaction {tx_id}")
+                cursor.execute(
+                    "UPDATE transactions SET category_id = ? WHERE id = ?",
+                    (target_id, tx_id)
+                )
+            
+            processed_ids.append(tx_id)
+            
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+    
+    return {"status": "success", "processed_ids": processed_ids}

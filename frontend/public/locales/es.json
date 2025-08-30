@@ -16,6 +16,7 @@
   "addTransaction": "Añadir Transacción",
   "addTransfer": "Añadir Transferencia",
   "askAI": "Preguntar a la IA",
+  "askAIPlaceholder":"Pregunta sobre tus finanzas...",
   "balanceReport": "Informe de Saldo",
   "totalBalance": "Saldo Total",
   "recentTransactions": "Transacciones Recientes",
@@ -118,5 +119,17 @@
   "categoryInUseTitle": "Categoría en Uso",
   "categoryInUseMessage": "La categoría \"{name}\" es utilizada por {count} transacciones. ¿Qué te gustaría hacer?",
   "recategorizeTransactions": "Re-categorizar transacciones a:",
-  "noOtherCategories": "No hay otras categorías disponibles"
+  "noOtherCategories": "No hay otras categorías disponibles",
+  "perTransactionChoice": "Elegir por transacción...",
+  "perTransactionChoiceDescription": "Revisar y decidir manualmente qué hacer con cada transacción individualmente.",
+  "manageTransactionsTitle": "Gestionar Transacciones",
+  "transactionsToManage": "{count} transacciones por gestionar",
+  "action": "Acción",
+  "applyToAction": "Aplicar Acción",
+  "move": "Mover",
+  "keep": "Mantener",
+  "selectTargetCategory": "Seleccionar categoría de destino",
+  "processingTransactions": "Procesando {count} transacciones...",
+  "allTransactionsManaged": "¡Todas las transacciones han sido gestionadas!",
+  "confirmAndFinish": "Confirmar y Finalizar"
 }

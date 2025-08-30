@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ConfirmationModal from './ConfirmationModal';
 import AdvancedDeleteModal from './AdvancedDeleteModal';
-import TransferCategoryDeleteModal from './TransferCategoryDeleteModal'; // Import the new modal
+import PerTransactionManagerModal from './PerTransactionManagerModal';
+import TransferCategoryDeleteModal from './TransferCategoryDeleteModal';
 import EditIcon from './icons/EditIcon';
 import DeleteIcon from './icons/DeleteIcon';
 
@@ -10,6 +11,7 @@ const API_URL = "http://127.0.0.1:8000";
 function CategoryManager({ onUpdate, t }) {
   const [categories, setCategories] = useState([]);
   const [transferCategoryId, setTransferCategoryId] = useState(null);
+  const [perTxManageTarget, setPerTxManageTarget] = useState(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
   const [simpleDeleteTarget, setSimpleDeleteTarget] = useState(null);
@@ -27,10 +29,7 @@ function CategoryManager({ onUpdate, t }) {
       .catch(() => setTransferCategoryId(null));
   };
 
-  useEffect(() => {
-    fetchCategories();
-    fetchTransferCategorySetting();
-  }, []);
+  useEffect(() => { fetchCategories(); fetchTransferCategorySetting(); }, []);
 
   const handleError = (error) => {
     const detail = error.detail || error;
@@ -94,17 +93,6 @@ function CategoryManager({ onUpdate, t }) {
       .catch(err => { handleError(err); setSimpleDeleteTarget(null); });
   };
   
-  const confirmAdvancedDelete = (options) => {
-    const categoryId = advancedDeleteTarget.category.id;
-    apiCall(`${API_URL}/categories/${categoryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) })
-      .then(() => {
-        setCategories(categories.filter(cat => cat.id !== categoryId));
-        setAdvancedDeleteTarget(null);
-        onUpdate(t.categoryDeletedSuccess);
-      })
-      .catch(err => { handleError(err); setAdvancedDeleteTarget(null); });
-  };
-
   const initiateDelete = (category) => {
     // Check if the category is the active transfer category
     if (category.id === transferCategoryId) {
@@ -123,19 +111,37 @@ function CategoryManager({ onUpdate, t }) {
       .catch(handleError);
   };
 
-  // Handler for confirming the deletion of the transfer category
-  const confirmTransferCategoryDelete = (newTransferCategoryId) => {
-    const categoryId = transferDeleteTarget.id;
-    const options = { new_transfer_category_id: newTransferCategoryId };
-
+  const confirmAdvancedDelete = (options) => {
+    if (options.strategy === 'per_transaction') {
+      setPerTxManageTarget(advancedDeleteTarget.category);
+      setAdvancedDeleteTarget(null);
+      return;
+    }
+    const categoryId = advancedDeleteTarget.category.id;
     apiCall(`${API_URL}/categories/${categoryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) })
       .then(() => {
         setCategories(categories.filter(cat => cat.id !== categoryId));
-        setTransferDeleteTarget(null);
-        onUpdate(t.categoryDeletedAndSettingUpdatedSuccess || "Category deleted and transfer setting updated!");
-        fetchTransferCategorySetting();
+        setAdvancedDeleteTarget(null);
+        onUpdate(t.categoryDeletedSuccess);
       })
-      .catch(err => { handleError(err); setTransferDeleteTarget(null); });
+      .catch(err => { handleError(err); setAdvancedDeleteTarget(null); });
+  };
+
+  const handlePerTxManageComplete = () => {
+    const categoryToDelete = perTxManageTarget;
+    setPerTxManageTarget(null);
+    // User explicitly finished, so we attempt to delete the now-empty category.
+    apiCall(`${API_URL}/categories/${categoryToDelete.id}`, { method: 'DELETE' })
+      .then(() => {
+        onUpdate(t.categoryDeletedSuccess);
+        fetchCategories();
+      })
+      .catch(() => { fetchCategories(); });
+  };
+
+  const handlePerTxManageClose = () => {
+    // User cancelled, so we just close the modal and do nothing.
+    setPerTxManageTarget(null);
   };
 
 
@@ -173,6 +179,16 @@ function CategoryManager({ onUpdate, t }) {
       {simpleDeleteTarget && ( <ConfirmationModal message={`${t.deleteConfirmMessage} "${simpleDeleteTarget.name}"?`} onConfirm={confirmSimpleDelete} onCancel={() => setSimpleDeleteTarget(null)} confirmText={t.delete} cancelText={t.cancel} /> )}
       {advancedDeleteTarget && ( <AdvancedDeleteModal category={advancedDeleteTarget.category} transactionCount={advancedDeleteTarget.count} allCategories={categories} onConfirm={confirmAdvancedDelete} onCancel={() => setAdvancedDeleteTarget(null)} t={t} /> )}
       {transferDeleteTarget && ( <TransferCategoryDeleteModal category={transferDeleteTarget} allCategories={categories} onConfirm={confirmTransferCategoryDelete} onCancel={() => setTransferDeleteTarget(null)} t={t} /> )}
+      {perTxManageTarget && (
+        <PerTransactionManagerModal
+          t={t}
+          onComplete={handlePerTxManageComplete}
+          onClose={handlePerTxManageClose}
+          categoryToManage={perTxManageTarget}
+          availableActions={['recategorize', 'delete']}
+          allCategories={categories.filter(c => c.id !== perTxManageTarget.id)}
+        />
+      )}
     </div>
   );
 }

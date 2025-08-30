@@ -16,6 +16,7 @@
   "addTransaction": "Add Transaction",
   "addTransfer": "Add Transfer",
   "askAI": "Ask the AI",
+  "askAIPlaceholder":"Ask about your finances...",
   "balanceReport": "Balance Report",
   "totalBalance": "Total Balance",
   "recentTransactions": "Recent Transactions",
@@ -120,5 +121,17 @@
   "categoryInUseTitle": "Category in Use",
   "categoryInUseMessage": "The category \"{name}\" is used by {count} transactions. What would you like to do?",
   "recategorizeTransactions": "Re-categorize transactions to:",
-  "noOtherCategories": "No other categories available"
+  "noOtherCategories": "No other categories available",
+  "perTransactionChoice": "Choose per transaction...",
+  "perTransactionChoiceDescription": "Manually review and decide what to do with each transaction individually.",
+  "manageTransactionsTitle": "Manage Transactions",
+  "transactionsToManage": "{count} transactions to manage",
+  "action": "Action",
+  "applyToAction": "Apply Action",
+  "move": "Move",
+  "keep": "Keep",
+  "selectTargetCategory": "Select target category",
+  "processingTransactions": "Processing {count} transactions...",
+  "allTransactionsManaged": "All transactions have been managed!",
+  "confirmAndFinish": "Confirm & Finish"
 }

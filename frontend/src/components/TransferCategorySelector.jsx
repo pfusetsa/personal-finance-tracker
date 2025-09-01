@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../apiClient';
 import TransferMigrationModal from './TransferMigrationModal';
 import PerTransactionManagerModal from './PerTransactionManagerModal';
-
-const API_URL = "http://127.0.0.1:8000";
 
 function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
   const [initialCategoryId, setInitialCategoryId] = useState('');
@@ -10,11 +9,12 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
   const [modalStep, setModalStep] = useState('selection'); 
 
   useEffect(() => {
-    fetch(`${API_URL}/settings/transfer_category_id`)
-      .then(res => res.json())
+    apiFetch('/settings/transfer_category_id')
       .then(data => {
-        setInitialCategoryId(data.value);
-        setSelectedCategoryId(data.value);
+        if (data) {
+          setInitialCategoryId(data.value);
+          setSelectedCategoryId(data.value);
+        }
       })
       .catch(err => console.error("Could not fetch transfer category setting:", err));
   }, []);
@@ -38,9 +38,8 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
       return;
     }
 
-    fetch(`${API_URL}/settings/transfer_category_id`, {
+    apiFetch(`/settings/transfer_category_id`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         value: selectedCategoryId,
         original_value: initialCategoryId,
@@ -58,9 +57,8 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
   const handlePerTxManageComplete = (didFinish) => {
     if (didFinish) {
       // If the user managed all transactions, save the new setting
-      fetch(`${API_URL}/settings/transfer_category_id`, {
+      apiFetch(`/settings/transfer_category_id`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: selectedCategoryId, migration_strategy: 'keep_unchanged' }),
       })
       .then(res => {

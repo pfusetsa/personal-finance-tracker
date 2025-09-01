@@ -131,5 +131,15 @@
   "selectTargetCategory": "Seleccionar categoría de destino",
   "processingTransactions": "Procesando {count} transacciones...",
   "allTransactionsManaged": "¡Todas las transacciones han sido gestionadas!",
-  "confirmAndFinish": "Confirmar y Finalizar"
+  "confirmAndFinish": "Confirmar",
+  "welcomeMessage": "¡Bienvenido a TrakFin!",
+  "selectProfile": "Seleccionar un Perfil",
+  "loadProfile": "Entrar",
+  "createNewProfile": "Crear Nuevo Perfil",
+  "firstName": "Nombre",
+  "secondName": "Segundo Nombre (Opcional)",
+  "surname": "Apellido(s)",
+  "createAndLoad": "Crear",
+  "cannotDeleteTransferCategoryError": "No se puede eliminar la categoría de transferencia activa. Por favor, cámbiala primero en Ajustes."
+
 }

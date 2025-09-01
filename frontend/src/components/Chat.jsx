@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { apiFetch } from '../apiClient';
 
-function Chat({ apiUrl, onCancel, t }) {
+function Chat({ onCancel, t }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -13,9 +14,14 @@ function Chat({ apiUrl, onCancel, t }) {
   const handleSend = () => {
     if (!input.trim()) return;
     const newMessages = [...messages, { text: input, sender: 'user' }];
-    setMessages(newMessages); setInput(''); setIsLoading(true);
-    fetch(`${apiUrl}/chat/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: input, history: messages }), })
-    .then(res => res.ok ? res.json() : Promise.reject('Failed to get response'))
+    setMessages(newMessages); 
+    setInput(''); 
+    setIsLoading(true);
+
+    apiFetch('/chat/', { 
+      method: 'POST', 
+      body: JSON.stringify({ query: input, history: messages }), 
+    })
     .then(data => { setMessages([...newMessages, { text: data.response, sender: 'ai' }]); })
     .catch(err => { setMessages([...newMessages, { text: 'Sorry, I had trouble getting a response.', sender: 'ai' }]); })
     .finally(() => setIsLoading(false));

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { categoryColorPalette } from './utils.js';
+import { apiFetch, setActiveUser } from './apiClient';
 
 import AccountManager from './components/AccountManager.jsx';
 import AddTransactionForm from './components/AddTransactionForm';
@@ -30,13 +31,13 @@ import TransactionFilters from './components/TransactionFilters';
 import TransactionList from './components/TransactionList';
 import TransactionListSkeleton from './components/skeletons/TransactionListSkeleton.jsx';
 import TransferCategorySelector from './components/TransferCategorySelector.jsx';
+import UserSelector from './components/UserSelector.jsx';
 
-
-const API_URL = "http://127.0.0.1:8000";
 const PAGE_SIZE = 10;
 const initialCardVisibility = { incomeVsExpenses: true, category: true, recurrent: true };
 
 function App() {
+  const [activeUser, _setActiveUser] = useState(null);
   const [balanceReportData, setBalanceReportData] = useState(null);
   const [transactionsData, setTransactionsData] = useState(null);
   const [accounts, setAccounts] = useState([]);
@@ -74,25 +75,67 @@ function App() {
     sort: { by: 'date', order: 'desc' },
   });
 
-  useEffect(() => { fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data)); localStorage.setItem('language', language); }, [language]);
+  useEffect(() => {
+    fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data));
+    localStorage.setItem('language', language);
+  }, [language]);
+
+  const handleSetUser = (user) => {
+    setActiveUser(user.id);
+    _setActiveUser(user);
+  };
+
+  // --- CONSOLIDATED DATA FETCHING ---
+  // This single useEffect now handles all data that depends on the date filters.
+  useEffect(() => {
+    if (!activeUser) return;
+
+    // Fetch non-date-filtered data
+    const balancePromise = apiFetch('/reports/balance/');
+    const evolutionPromise = apiFetch('/reports/balance-evolution/');
+    const accountsPromise = apiFetch('/accounts/');
+    const categoriesPromise = apiFetch('/categories/');
+
+    // Calculate dates
+    let startDate;
+    let endDate = new Date().toISOString().split('T')[0];
+
+    if (chartPeriod === '1m') { const d = new Date(); d.setMonth(d.getMonth() - 1); startDate = d.toISOString().split('T')[0]; } 
+    else if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; } 
+    else if (chartPeriod === '1y') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); startDate = d.toISOString().split('T')[0]; } 
+    else if (chartPeriod === 'all') { startDate = '1970-01-01'; } 
+    else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } 
+    else { return; }
+
+    // Fetch date-filtered data
+    setCategorySummaryData(null); setIncomeExpenseData(null); setRecurrentData(null);
+    const categorySummaryPromise = apiFetch(`/reports/category-summary/?start_date=${startDate}&end_date=${endDate}&transaction_type=${categoryChartType}`);
+    const incomeExpensePromise = apiFetch(`/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`);
+    const recurrentPromise = apiFetch(`/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`);
+    
+    // Resolve all promises
+    Promise.all([balancePromise, evolutionPromise, accountsPromise, categoriesPromise, categorySummaryPromise, incomeExpensePromise, recurrentPromise])
+      .then(([balanceData, evolutionData, accountsData, categoriesData, categoryData, incomeData, recurrentData]) => {
+        setBalanceReportData(balanceData);
+        setBalanceEvolutionData(evolutionData);
+        setAccounts(accountsData);
+        setCategories(categoriesData);
+        const colorMap = {};
+        categoriesData.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; });
+        setCategoryColorMap(colorMap);
+        setCategorySummaryData(categoryData);
+        setIncomeExpenseData(incomeData);
+        setRecurrentData(recurrentData);
+      }).catch(err => console.error("Error fetching dashboard data:", err));
+
+  }, [activeUser, refreshTrigger, chartPeriod, customDates, categoryChartType]);
+  
   useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
   useEffect(() => { const handleKeyDown = (event) => { if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) { return; } if (event.key === 'Escape') { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setShowChat(false); setDeletingTransaction(null); } if (event.key.toLowerCase() === 'n') { event.preventDefault(); setActiveForm('transaction'); } if (event.key.toLowerCase() === 't') { event.preventDefault(); setActiveForm('transfer'); } if (event.key.toLowerCase() === 'a') { event.preventDefault(); setShowChat(true); } }; window.addEventListener('keydown', handleKeyDown); return () => { window.removeEventListener('keydown', handleKeyDown); }; }, []);
-  useEffect(() => {
-    fetch(`${API_URL}/reports/balance/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceReportData(data));
-    fetch(`${API_URL}/reports/balance-evolution/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setBalanceEvolutionData(data));
-    fetch(`${API_URL}/accounts/`, { cache: 'no-cache' }).then(res => res.json()).then(data => setAccounts(data));
-    fetch(`${API_URL}/categories/`, { cache: 'no-cache' }).then(res => res.json()).then(data => { setCategories(data); const colorMap = {}; data.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; }); setCategoryColorMap(colorMap); });
-  }, [refreshTrigger]);
-  useEffect(() => {
-    let startDate, endDate = new Date().toISOString().split('T')[0];
-    if (chartPeriod === '1m') { const d = new Date(); d.setMonth(d.getMonth() - 1); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === '6m') { const d = new Date(); d.setMonth(d.getMonth() - 6); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === '1y') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); startDate = d.toISOString().split('T')[0]; } else if (chartPeriod === 'all') { startDate = '1970-01-01'; } else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } else { return; }
-    setCategorySummaryData(null); setIncomeExpenseData(null); setRecurrentData(null);
-    fetch(`${API_URL}/reports/category-summary/?start_date=${startDate}&end_date=${endDate}&transaction_type=${categoryChartType}`).then(res=>res.json()).then(data=>setCategorySummaryData(data));
-    fetch(`${API_URL}/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setIncomeExpenseData(data));
-    fetch(`${API_URL}/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(res=>res.json()).then(data=>setRecurrentData(data));
-  }, [refreshTrigger, chartPeriod, customDates, categoryChartType]);
-  useEffect(() => {
 
+  // Effect for the main transaction list
+  useEffect(() => {
+    if (!activeUser) return;
     setIsFiltering(true);
     const startTime = Date.now();
     const MIN_DISPLAY_TIME = 300; 
@@ -116,8 +159,7 @@ function App() {
 
     const queryString = params.toString();
 
-    fetch(`${API_URL}/transactions/?${queryString}`, { cache: 'no-cache' })
-      .then(res => res.json())
+    apiFetch(`/transactions/?${queryString}`)
       .then(data => {
         const elapsedTime = Date.now() - startTime;
         const delay = Math.max(MIN_DISPLAY_TIME - elapsedTime, 0);
@@ -128,7 +170,7 @@ function App() {
         }, delay);
       })
       .catch(() => setIsFiltering(false));
-  }, [currentPage, refreshTrigger, filters]);
+  }, [activeUser, currentPage, refreshTrigger, filters]);
 
   const handleFilterChange = useCallback((newFilterValues) => {
     setFilters(prevFilters => ({
@@ -137,58 +179,59 @@ function App() {
     }));
     setCurrentPage(1); // Reset to page 1 whenever filters change
   }, []);
+
+  if (!translations) { return <div className="p-8 text-center">Loading TrakFin...</div>; }
+
+  const t = translations;
+
   const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
   const showNotification = (message, type = 'success') => { setNotification({ message, type }); setTimeout(() => setNotification(null), 3000); };
   const handleDataUpdate = (message, type = 'success') => { setRefreshTrigger(c => c + 1); showNotification(message, type); };
   const handleTransactionSuccess = (message) => { handleDataUpdate(message); setActiveForm(null); setEditingTransaction(null); };
   const openSettings = (view) => { setSettingsView(view); setShowSettings(true); };
+  
   const confirmDeleteTransaction = () => {
     if (!deletingTransaction) return;
-
-    fetch(`${API_URL}/transactions/${deletingTransaction.id}`, { method: 'DELETE' })
-      .then(res => {
-        if (res.ok) {
-          // Check if the deleted item was a transfer to show the correct message
-          const message = deletingTransaction.transfer_id 
-            ? t.transferDeletedSuccess 
-            : t.transactionDeletedSuccess;
-          handleDataUpdate(message);
-          setDeletingTransaction(null);
-        }
+    apiFetch(`/transactions/${deletingTransaction.id}`, { method: 'DELETE' })
+      .then(() => {
+        const message = deletingTransaction.transfer_id ? t.transferDeletedSuccess : t.transactionDeletedSuccess;
+        handleDataUpdate(message);
+        setDeletingTransaction(null);
       });
   };
-  if (!translations) { return <div className="p-8 text-center">Loading TrakFin...</div>; }
-
-  const t = translations;
   const fabActions = [{ label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction'), shortcut: 'N' }, { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer'), shortcut: 'T' }, { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true), shortcut: 'A' }];
   const categoryChartFilterControl = ( <select value={categoryChartType} onChange={e => setCategoryChartType(e.target.value)} className="p-1 border rounded-md text-sm bg-gray-50"><option value="expense">{t.expenses}</option><option value="income">{t.income}</option><option value="both">{t.both}</option></select> );
-  const handleAddTransaction = (formData) => { fetch(`${API_URL}/transactions/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, currency: formData.currency, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.transactionAddedSuccess)).catch(error => { console.error('Failed to add transaction:', error); showNotification(t.transactionAddError, 'error'); }); };
-  const handleUpdateTransaction = (transactionId, formData) => { fetch(`${API_URL}/transactions/${transactionId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, currency: formData.currency, amount: parseFloat(formData.amount), account_id: parseInt(formData.account_id), category_id: parseInt(formData.category_id) }) }).then(res => { if (!res.ok) { throw new Error('Network response was not ok'); } return res.json(); }).then(() => handleTransactionSuccess(t.transactionUpdatedSuccess)).catch(error => { console.error('Failed to update transaction:', error); showNotification(t.transactionUpdateError, 'error'); }); };
-  const handleAddTransfer = (formData) => { const fromAccount = accounts.find(acc => acc.id === parseInt(formData.from_account_id)); const toAccount = accounts.find(acc => acc.id === parseInt(formData.to_account_id)); if (!fromAccount || !toAccount) { showNotification('Could not find accounts.', 'error'); return; } const description = t.transferDescription.replace('{fromName}', fromAccount.name).replace('{toName}', toAccount.name); fetch(`${API_URL}/transfers/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, description, amount: parseFloat(formData.amount), from_account_id: parseInt(formData.from_account_id), to_account_id: parseInt(formData.to_account_id) }) }).then(res => { if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); } return res.json(); }).then(() => handleTransactionSuccess(t.transferAddedSuccess)).catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || t.transferAddError, 'error'); }); };
-  const handleUpdateTransfer = (transferId, formData) => {
-    fetch(`${API_URL}/transfers/${transferId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...formData,
-        amount: parseFloat(formData.amount),
-        from_account_id: parseInt(formData.from_account_id),
-        to_account_id: parseInt(formData.to_account_id),
-      })
-    })
-    .then(res => {
-      if (!res.ok) { throw new Error('Network response was not ok'); }
-      return res.json();
-    })
-    .then(() => {
-      handleDataUpdate(t.transferUpdatedSuccess);
-      setEditingTransferId(null);
-    })
-    .catch(error => {
-      console.error('Failed to update transfer:', error);
-      showNotification(t.transferUpdateError, 'error');
-    });
+  const handleAddTransaction = (formData) => {
+    apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify({ ...formData, currency: 'EUR' }) })
+      .then(() => handleTransactionSuccess(t.transactionAddedSuccess))
+      .catch(error => { console.error('Failed to add transaction:', error); showNotification(t.transactionAddError, 'error'); });
   };
+  const handleUpdateTransaction = (transactionId, formData) => {
+    apiFetch(`/transactions/${transactionId}`, { method: 'PUT', body: JSON.stringify({ ...formData, currency: 'EUR' }) })
+      .then(() => handleTransactionSuccess(t.transactionUpdatedSuccess))
+      .catch(error => { console.error('Failed to update transaction:', error); showNotification(t.transactionUpdateError, 'error'); });
+  };
+  const handleAddTransfer = (formData) => {
+    const fromAccount = accounts.find(acc => acc.id === parseInt(formData.from_account_id));
+    const toAccount = accounts.find(acc => acc.id === parseInt(formData.to_account_id));
+    if (!fromAccount || !toAccount) { showNotification('Could not find accounts.', 'error'); return; }
+    const description = t.transferDescription.replace('{fromName}', fromAccount.name).replace('{toName}', toAccount.name);
+    apiFetch(`/transfers/`, { method: 'POST', body: JSON.stringify({ ...formData, description }) })
+      .then(() => handleTransactionSuccess(t.transferAddedSuccess))
+      .catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || t.transferAddError, 'error'); });
+  };
+  const handleUpdateTransfer = (transferId, formData) => {
+    apiFetch(`/transfers/${transferId}`, { method: 'PUT', body: JSON.stringify(formData) })
+      .then(() => {
+        handleDataUpdate(t.transferUpdatedSuccess);
+        setEditingTransferId(null);
+      })
+      .catch(error => { console.error('Failed to update transfer:', error); showNotification(t.transferUpdateError, 'error'); });
+  };
+
+  if (!activeUser) {
+    return <UserSelector onUserSelected={handleSetUser} t={t} language={language} setLanguage={setLanguage} />;
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -215,7 +258,7 @@ function App() {
         </Modal>
       )}
       {deletingTransaction && (<ConfirmationModal message={`${t.deleteConfirmMessage} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} confirmText={t.delete} cancelText={t.cancel} />)}
-      {showChat && <Chat apiUrl={API_URL} onCancel={() => setShowChat(false)} t={t} />}
+      {showChat && <Chat onCancel={() => setShowChat(false)} t={t} />}
       {showSettings && (
         <Modal 
           title={

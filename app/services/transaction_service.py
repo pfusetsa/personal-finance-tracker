@@ -2,7 +2,7 @@
 import uuid
 from .. import crud
 
-def create_transfer(date: str, description: str, amount: float, from_account_id: int, to_account_id: int):
+def create_transfer(date: str, description: str, amount: float, from_account_id: int, to_account_id: int, user_id: int):
     """
     Creates two transactions to represent a transfer between accounts,
     linking them with a unique transfer_id.
@@ -10,7 +10,7 @@ def create_transfer(date: str, description: str, amount: float, from_account_id:
     if from_account_id == to_account_id:
         raise ValueError("Cannot transfer to the same account.")
     
-    transfer_category_id_str = crud.get_setting('transfer_category_id')
+    transfer_category_id_str = crud.get_setting('transfer_category_id', user_id)
     if not transfer_category_id_str:
         raise ValueError("Transfer category is not configured. Please set it in the application settings.")
     
@@ -20,12 +20,12 @@ def create_transfer(date: str, description: str, amount: float, from_account_id:
     # Add the transfer_id to both transactions
     crud.add_transaction(
         date=date, description=description, amount=-abs(amount), currency='EUR',
-        is_recurrent=False, account_id=from_account_id, category_id=transfer_category_id,
+        is_recurrent=False, account_id=from_account_id, category_id=transfer_category_id, user_id=user_id,
         transfer_id=transfer_id
     )
     crud.add_transaction(
         date=date, description=description, amount=abs(amount), currency='EUR',
-        is_recurrent=False, account_id=to_account_id, category_id=transfer_category_id,
+        is_recurrent=False, account_id=to_account_id, category_id=transfer_category_id, user_id=user_id,
         transfer_id=transfer_id
     )
     return {"status": "success", "message": "Transfer created."}

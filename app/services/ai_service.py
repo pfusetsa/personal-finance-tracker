@@ -19,7 +19,7 @@ async def call_gemini_api(payload):
             print(f"Error calling Gemini API: {e}")
             return "Error: Could not get a response from the AI model."
 
-async def execute_natural_language_query(user_query: str, history: list = []) -> str:
+async def execute_natural_language_query(user_query: str, history: list, user_id: int):
     db_schema = crud.get_db_schema_string() # Calls the correct function name
     today = datetime.today().strftime('%Y-%m-%d')
     
@@ -30,13 +30,18 @@ async def execute_natural_language_query(user_query: str, history: list = []) ->
 You are TrakFin AI, a friendly and expert financial assistant for the TrakFin app.
 Your goal is to help the user understand their finances by answering their questions.
 You can query their financial database using SQLite. Today's date is {today}.
+The user you are helping has the user_id: {user_id}.
+
+**CRITICAL SECURITY RULE:** You MUST include a `WHERE user_id = {user_id}` clause in EVERY SQLite query you generate to ensure you only access this user's data. Do not query for any other user_id.
+
+**INTERPRETATION RULE:** In the `transactions` table, a negative `amount` signifies an **expense** (money spent), and a positive `amount` signifies **income** (money received). When reporting on total 'spending' or 'expenses', you should look for negative amounts but present the final sum as a positive number (e.g., "You spent 453.00 €").
 
 DATABASE SCHEMA:
 {db_schema}
 
 When the user asks a question, first decide if you need to query the database.
-1.  If the question is about their financial data (spending, income, balance, categories), you MUST generate a SQLite query.
-    - Your only output should be the SQLite query, wrapped in `[SQL]` tags. Example: `[SQL]SELECT SUM(amount) FROM transactions;[/SQL]`
+1.  If the question is about their financial data (spending, income, balance, categories), you MUST generate a SQLite query that follows the security rule above.
+    - Your only output should be the SQLite query, wrapped in `[SQL]` tags. Example: `[SQL]SELECT SUM(amount) FROM transactions WHERE user_id = {user_id};[/SQL]`
     - Use the chat history to understand context for follow-up questions (e.g., "what about last month?").
 2.  If the question is a greeting or general financial advice, just answer conversationally. Do not use `[SQL]` tags.
 

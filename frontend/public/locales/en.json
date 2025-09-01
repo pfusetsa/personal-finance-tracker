@@ -133,5 +133,15 @@
   "selectTargetCategory": "Select target category",
   "processingTransactions": "Processing {count} transactions...",
   "allTransactionsManaged": "All transactions have been managed!",
-  "confirmAndFinish": "Confirm & Finish"
+  "confirmAndFinish": "Confirm",
+  "welcomeMessage": "Welcome to TrakFin!",
+  "selectProfile": "Select a Profile",
+  "loadProfile": "Enter",
+  "createNewProfile": "Create New Profile",
+  "firstName": "First Name",
+  "secondName": "Second Name (Optional)",
+  "surname": "Surname(s)",
+  "createAndLoad": "Create",
+  "cannotDeleteTransferCategoryError": "Cannot delete the active transfer category. Please change it in Settings first."
+
 }

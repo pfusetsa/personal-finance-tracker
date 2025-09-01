@@ -8,7 +8,7 @@ function LanguageSelector({ language, setLanguage }) {
     { code: 'es', name: 'Español', flag: '🇪🇸' },
   ];
 
-  const selectedLanguage = languages.find(lang => lang.code === language);
+  const selectedLanguage = languages.find(lang => lang.code === language) || languages[0];
 
   const handleSelect = (langCode) => {
     setLanguage(langCode);

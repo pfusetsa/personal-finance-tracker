@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../apiClient';
 import ConfirmationModal from './ConfirmationModal';
 import AdvancedAccountDeleteModal from './AdvancedAccountDeleteModal';
-
-const API_URL = "http://127.0.0.1:8000";
 
 function AccountManager({ onUpdate, t }) {
   const [accounts, setAccounts] = useState([]);
@@ -11,17 +10,20 @@ function AccountManager({ onUpdate, t }) {
   const [simpleDeleteTarget, setSimpleDeleteTarget] = useState(null);
   const [advancedDeleteTarget, setAdvancedDeleteTarget] = useState(null);
 
+  const fetchAccounts = () => {
+    apiFetch('/accounts/').then(setAccounts).catch(handleError);
+  };
+
   useEffect(() => {
-    fetch(`${API_URL}/accounts/`).then(res => res.json()).then(data => setAccounts(data));
+    fetchAccounts();
   }, []);
 
   const handleError = (error) => { const detail = error.detail || error; if (detail && detail.key && t[`${detail.key}Error`]) { let message = t[`${detail.key}Error`]; if (detail.params) { for (const [key, value] of Object.entries(detail.params)) { message = message.replace(`{${key}}`, value); } } onUpdate(message, 'error'); return; } onUpdate(detail || 'An unknown error occurred.', 'error'); };
-  const apiCall = (endpoint, options) => { return fetch(endpoint, options).then(async (res) => { if (!res.ok) { throw await res.json(); } return res.status === 204 ? null : res.json(); }); };
   
   const handleAddAccount = (e) => {
     e.preventDefault();
-    apiCall(`${API_URL}/accounts/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newAccountName }), })
-      .then(newAccount => {
+    apiFetch('/accounts/', { method: 'POST', body: JSON.stringify({ name: newAccountName }) })
+    .then(newAccount => {
         setAccounts([...accounts, newAccount]);
         setNewAccountName('');
         onUpdate(t.accountAddedSuccess);
@@ -31,7 +33,7 @@ function AccountManager({ onUpdate, t }) {
 
   const handleUpdateAccount = (e) => {
     e.preventDefault();
-    apiCall(`${API_URL}/accounts/${editingAccount.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingAccount.name }), })
+    apiFetch(`/accounts/${editingAccount.id}`, { method: 'PUT', body: JSON.stringify({ name: editingAccount.name }) })
       .then(() => {
         setAccounts(accounts.map(acc => acc.id === editingAccount.id ? { ...acc, name: editingAccount.name } : acc));
         setEditingAccount(null);
@@ -41,8 +43,7 @@ function AccountManager({ onUpdate, t }) {
   };
 
   const initiateDelete = (account) => {
-    fetch(`${API_URL}/accounts/${account.id}/transaction_count`)
-      .then(res => res.json())
+    apiFetch(`/accounts/${account.id}/transaction_count`)
       .then(data => {
         if (data.count > 0) {
           setAdvancedDeleteTarget({ account, count: data.count });
@@ -54,7 +55,7 @@ function AccountManager({ onUpdate, t }) {
 
   const confirmSimpleDelete = () => {
     if (!simpleDeleteTarget) return;
-    apiCall(`${API_URL}/accounts/${simpleDeleteTarget.id}`, { method: 'DELETE' })
+    apiFetch(`/accounts/${simpleDeleteTarget.id}`, { method: 'DELETE' })
       .then(() => {
         setAccounts(accounts.filter(acc => acc.id !== simpleDeleteTarget.id));
         setSimpleDeleteTarget(null);
@@ -65,7 +66,7 @@ function AccountManager({ onUpdate, t }) {
   
   const confirmAdvancedDelete = (options) => {
     const accountId = advancedDeleteTarget.account.id;
-    apiCall(`${API_URL}/accounts/${accountId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) })
+    apiFetch(`/accounts/${accountId}`, { method: 'DELETE', body: JSON.stringify(options) })
       .then(() => {
         setAccounts(accounts.filter(acc => acc.id !== accountId));
         setAdvancedDeleteTarget(null);

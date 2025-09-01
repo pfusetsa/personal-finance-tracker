@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../apiClient'; 
 import ConfirmationModal from './ConfirmationModal';
 import AdvancedDeleteModal from './AdvancedDeleteModal';
 import PerTransactionManagerModal from './PerTransactionManagerModal';
 import TransferCategoryDeleteModal from './TransferCategoryDeleteModal';
 import EditIcon from './icons/EditIcon';
 import DeleteIcon from './icons/DeleteIcon';
-
-const API_URL = "http://127.0.0.1:8000";
 
 function CategoryManager({ onUpdate, t }) {
   const [categories, setCategories] = useState([]);
@@ -19,12 +18,11 @@ function CategoryManager({ onUpdate, t }) {
   const [transferDeleteTarget, setTransferDeleteTarget] = useState(null);
 
   const fetchCategories = () => {
-    fetch(`${API_URL}/categories/`).then(res => res.json()).then(data => setCategories(data));
+    apiFetch('/categories/').then(setCategories).catch(handleError);
   };
   
   const fetchTransferCategorySetting = () => {
-    fetch(`${API_URL}/settings/transfer_category_id`)
-      .then(res => res.ok ? res.json() : Promise.resolve(null))
+    apiFetch('/settings/transfer_category_id')
       .then(data => setTransferCategoryId(data ? parseInt(data.value) : null))
       .catch(() => setTransferCategoryId(null));
   };
@@ -50,19 +48,10 @@ function CategoryManager({ onUpdate, t }) {
     }
     onUpdate(detail || 'An unknown error occurred.', 'error');
   };
-  
-  const apiCall = (endpoint, options) => {
-    return fetch(endpoint, options).then(async (res) => {
-      if (!res.ok) {
-        throw await res.json();
-      }
-      return res.status === 204 ? null : res.json();
-    });
-  };
 
   const handleAddCategory = (e) => {
     e.preventDefault();
-    apiCall(`${API_URL}/categories/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCategoryName }), })
+    apiFetch('/categories/', { method: 'POST', body: JSON.stringify({ name: newCategoryName }) })
       .then(newCategory => {
         setCategories([...categories, newCategory]);
         setNewCategoryName('');
@@ -73,7 +62,7 @@ function CategoryManager({ onUpdate, t }) {
 
   const handleUpdateCategory = (e) => {
     e.preventDefault();
-    apiCall(`${API_URL}/categories/${editingCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: editingCategory.name }), })
+    apiFetch(`/categories/${editingCategory.id}`, { method: 'PUT', body: JSON.stringify({ name: editingCategory.name }), })
       .then(() => {
         setCategories(categories.map(cat => cat.id === editingCategory.id ? { ...cat, name: editingCategory.name } : cat));
         setEditingCategory(null);
@@ -84,7 +73,7 @@ function CategoryManager({ onUpdate, t }) {
 
   const confirmSimpleDelete = () => {
     if (!simpleDeleteTarget) return;
-    apiCall(`${API_URL}/categories/${simpleDeleteTarget.id}`, { method: 'DELETE' })
+    apiFetch(`/categories/${simpleDeleteTarget.id}`, { method: 'DELETE' })
       .then(() => {
         setCategories(categories.filter(cat => cat.id !== simpleDeleteTarget.id));
         setSimpleDeleteTarget(null);
@@ -96,11 +85,11 @@ function CategoryManager({ onUpdate, t }) {
   const initiateDelete = (category) => {
     // Check if the category is the active transfer category
     if (category.id === transferCategoryId) {
-      setTransferDeleteTarget(category);
+      onUpdate(t.cannotDeleteTransferCategoryError, 'error');
       return;
     }
 
-    fetch(`${API_URL}/categories/${category.id}/transaction_count`).then(res => res.json())
+    apiFetch(`/categories/${category.id}/transaction_count`)
       .then(data => {
         if (data.count > 0) {
           setAdvancedDeleteTarget({ category, count: data.count });
@@ -118,7 +107,7 @@ function CategoryManager({ onUpdate, t }) {
       return;
     }
     const categoryId = advancedDeleteTarget.category.id;
-    apiCall(`${API_URL}/categories/${categoryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) })
+    apiFetch(`/categories/${categoryId}`, { method: 'DELETE', body: JSON.stringify(options) })
       .then(() => {
         setCategories(categories.filter(cat => cat.id !== categoryId));
         setAdvancedDeleteTarget(null);
@@ -131,7 +120,7 @@ function CategoryManager({ onUpdate, t }) {
     const categoryToDelete = perTxManageTarget;
     setPerTxManageTarget(null);
     // User explicitly finished, so we attempt to delete the now-empty category.
-    apiCall(`${API_URL}/categories/${categoryToDelete.id}`, { method: 'DELETE' })
+    apiFetch(`/categories/${categoryToDelete.id}`, { method: 'DELETE' })
       .then(() => {
         onUpdate(t.categoryDeletedSuccess);
         fetchCategories();
@@ -178,7 +167,6 @@ function CategoryManager({ onUpdate, t }) {
       
       {simpleDeleteTarget && ( <ConfirmationModal message={`${t.deleteConfirmMessage} "${simpleDeleteTarget.name}"?`} onConfirm={confirmSimpleDelete} onCancel={() => setSimpleDeleteTarget(null)} confirmText={t.delete} cancelText={t.cancel} /> )}
       {advancedDeleteTarget && ( <AdvancedDeleteModal category={advancedDeleteTarget.category} transactionCount={advancedDeleteTarget.count} allCategories={categories} onConfirm={confirmAdvancedDelete} onCancel={() => setAdvancedDeleteTarget(null)} t={t} /> )}
-      {transferDeleteTarget && ( <TransferCategoryDeleteModal category={transferDeleteTarget} allCategories={categories} onConfirm={confirmTransferCategoryDelete} onCancel={() => setTransferDeleteTarget(null)} t={t} /> )}
       {perTxManageTarget && (
         <PerTransactionManagerModal
           t={t}

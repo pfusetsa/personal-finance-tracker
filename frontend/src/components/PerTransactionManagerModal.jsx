@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatMoney } from '../utils.js';
+import { apiFetch } from '../apiClient';
 import Spinner from './Spinner';
 import Modal from './Modal';
 
@@ -14,8 +15,7 @@ function PerTransactionManagerModal({ t, onComplete, onClose, categoryToManage, 
   useEffect(() => {
     if (categoryToManage && categoryToManage.id) {
       setIsLoading(true);
-      fetch(`${API_URL}/transactions/?category_ids=${categoryToManage.id}&page_size=10000`)
-        .then(res => res.json())
+      apiFetch(`/transactions/?category_ids=${categoryToManage.id}&page_size=10000`)
         .then(data => { setTransactions(data.transactions || []); })
         .finally(() => setIsLoading(false));
     } else {
@@ -34,12 +34,10 @@ function PerTransactionManagerModal({ t, onComplete, onClose, categoryToManage, 
       target_category_id: action === 'recategorize' ? (newTransferCategoryId || parseInt(targetCategoryId)) : null,
     }));
 
-    fetch(`${API_URL}/transactions/batch-process`, {
+    apiFetch(`/transactions/batch-process`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ instructions }),
     })
-    .then(res => res.json())
     .then(() => {
       setTransactions(prev => prev.filter(tx => !selectedIds.has(tx.id)));
       setSelectedIds(new Set());

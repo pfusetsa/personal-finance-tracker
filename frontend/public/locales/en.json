@@ -142,6 +142,17 @@
   "secondName": "Second Name (Optional)",
   "surname": "Surname(s)",
   "createAndLoad": "Create",
-  "cannotDeleteTransferCategoryError": "Cannot delete the active transfer category. Please change it in Settings first."
-
+  "cannotDeleteTransferCategoryError": "Cannot delete the active transfer category. Please change it in Settings first.",
+  "setRecurrence": "Set Recurrence",
+  "recurrenceRuleFor": "Set the recurrence rule for:",
+  "frequency": "Frequency",
+  "days": "Days",
+  "weeks": "Weeks",
+  "months": "Months",
+  "years": "Years",
+  "endDate": "End Date",
+  "recurrenceSetSuccess": "Recurrence rule set successfully!",
+  "recurrenceSetError": "Failed to set recurrence rule.",
+  "optional": "Optional",
+  "never": "Never"
 }

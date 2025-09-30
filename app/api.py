@@ -2,7 +2,7 @@ import sqlite3
 from fastapi import FastAPI, HTTPException, Response, Query, Depends, Header
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import date
+from datetime import date as date_type
 from fastapi.middleware.cors import CORSMiddleware
 from . import crud
 from .services import transaction_service, ai_service
@@ -11,9 +11,21 @@ from .services import transaction_service, ai_service
 class AccountUpdate(BaseModel): name: str
 class CategoryUpdate(BaseModel): name: str
 class UserCreate(BaseModel): first_name: str; second_name: Optional[str] = None; surname: str
-class TransactionCreate(BaseModel): date: date; description: str; amount: float; currency: str; is_recurrent: bool; account_id: int; category_id: int
-class TransferCreate(BaseModel): date: date; description: str; amount: float; from_account_id: int; to_account_id: int
-class TransferUpdate(BaseModel): date: date; amount: float; from_account_id: int; to_account_id: int
+# Replace the old TransactionCreate model with this
+class TransactionCreate(BaseModel):
+    date: date_type
+    description: str
+    amount: float
+    currency: str
+    is_recurrent: bool
+    account_id: int
+    category_id: int
+    # New, optional fields for recurrence rules
+    recurrence_num: Optional[int] = None
+    recurrence_unit: Optional[str] = None # 'days', 'weeks', 'months', 'years'
+    recurrence_end_date: Optional[date_type] = None
+class TransferCreate(BaseModel): date: date_type; description: str; amount: float; from_account_id: int; to_account_id: int
+class TransferUpdate(BaseModel): date: date_type; amount: float; from_account_id: int; to_account_id: int
 class ChatQuery(BaseModel): query: str; history: Optional[List] = []
 class SettingUpdate(BaseModel): value: str; original_value: Optional[str] = None; migration_strategy: Optional[str] = None
 class AccountDeleteOptions(BaseModel): strategy: str; target_account_id: Optional[int] = None
@@ -32,8 +44,10 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allo
 # --- Users ---
 @app.get("/users/")
 def get_all_users(): return crud.get_users()
+
 @app.post("/users/", status_code=201)
-def create_new_user(user: UserCreate): return {"id": crud.create_user(user.first_name, user.second_name, user.surname), **user.dict()}
+def create_new_user(user: UserCreate): 
+    return {"id": crud.create_user(user.first_name, user.second_name, user.surname), **user.model_dump()}
 
 
 # --- Reports (Directly from CRUD) ---
@@ -48,17 +62,17 @@ def get_balance_evolution(user_id: int = Depends(get_current_user_id)):
     return report_df.to_dict(orient="records")
 
 @app.get("/reports/category-summary/")
-def get_category_summary_for_chart(start_date: date, end_date: date, transaction_type: str = 'expense', user_id: int = Depends(get_current_user_id)):
+def get_category_summary_for_chart(start_date: date_type, end_date: date_type, transaction_type: str = 'expense', user_id: int = Depends(get_current_user_id)):
     report_df = crud.get_category_summary_for_chart(user_id=user_id, start_date=str(start_date), end_date=str(end_date), transaction_type=transaction_type)
     return report_df.to_dict(orient="records")
 
 @app.get("/reports/monthly-income-expense-summary/")
-def get_monthly_income_expense_summary(start_date: date, end_date: date, user_id: int = Depends(get_current_user_id)):
+def get_monthly_income_expense_summary(start_date: date_type, end_date: date_type, user_id: int = Depends(get_current_user_id)):
     report_df = crud.get_monthly_income_expense_summary(user_id=user_id, start_date=str(start_date), end_date=str(end_date))
     return report_df.to_dict(orient="records")
 
 @app.get("/reports/recurrent-summary/")
-def get_recurrent_summary(start_date: date, end_date: date, user_id: int = Depends(get_current_user_id)):
+def get_recurrent_summary(start_date: date_type, end_date: date_type, user_id: int = Depends(get_current_user_id)):
     report_df = crud.get_recurrent_summary(user_id=user_id, start_date=str(start_date), end_date=str(end_date))
     return report_df.to_dict(orient="records")
 
@@ -189,8 +203,8 @@ def get_all_transactions(
     page_size: int = 10,
     account_ids: Optional[list[int]] = Query(None),
     category_ids: Optional[list[int]] = Query(None),
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
+    start_date: Optional[date_type] = None,
+    end_date: Optional[date_type] = None,
     search: Optional[str] = None,
     recurrent: Optional[bool] = None,
     amount_min: Optional[float] = None,
@@ -218,34 +232,50 @@ def get_all_transactions(
         "page_size": page_size
     }
 
-@app.post("/transactions/")
+@app.post("/transactions/", status_code=201)
 def create_transaction(transaction: TransactionCreate, user_id: int = Depends(get_current_user_id)):
     try:
-        crud.add_transaction(
-            date=transaction.date,
-            description=transaction.description,
-            amount=transaction.amount,
-            currency=transaction.currency,
-            is_recurrent=transaction.is_recurrent,
-            account_id=transaction.account_id,
-            category_id=transaction.category_id,
+        transaction_dict = transaction.model_dump()
+        # --- FIX: Convert date objects to strings ---
+        if transaction_dict.get('date'):
+            transaction_dict['date'] = str(transaction_dict['date'])
+        if transaction_dict.get('recurrence_end_date'):
+            transaction_dict['recurrence_end_date'] = str(transaction_dict['recurrence_end_date'])
+        # --- END FIX ---
+
+        new_transaction = transaction_service.create_transaction_with_recurrence(
+            transaction_data=transaction_dict,
             user_id=user_id
         )
-        return {"status": "success", "message": "Transaction created."}
-    except Exception as e:
+        return new_transaction
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 @app.put("/transactions/{transaction_id}")
 def update_transaction(transaction_id: int, transaction: TransactionCreate, user_id: int = Depends(get_current_user_id)):
     try:
-        crud.update_transaction(
-            transaction_id=transaction_id, date=transaction.date, description=transaction.description,
-            amount=transaction.amount, currency=transaction.currency, is_recurrent=transaction.is_recurrent,
-            account_id=transaction.account_id, category_id=transaction.category_id, user_id=user_id
+        transaction_dict = transaction.model_dump()
+        # --- FIX: Convert date objects to strings ---
+        if transaction_dict.get('date'):
+            transaction_dict['date'] = str(transaction_dict['date'])
+        if transaction_dict.get('recurrence_end_date'):
+            transaction_dict['recurrence_end_date'] = str(transaction_dict['recurrence_end_date'])
+        # --- END FIX ---
+
+        updated_transaction = transaction_service.update_transaction_with_recurrence(
+            transaction_id=transaction_id,
+            transaction_data=transaction_dict,
+            user_id=user_id
         )
-        return {"status": "success", "message": "Transaction updated."}
-    except Exception as e:
+        return updated_transaction
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
     
 @app.delete("/transactions/{transaction_id}", status_code=204)
 def delete_transaction(transaction_id: int, user_id: int = Depends(get_current_user_id)):

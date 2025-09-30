@@ -140,6 +140,17 @@
   "secondName": "Segundo Nombre (Opcional)",
   "surname": "Apellido(s)",
   "createAndLoad": "Crear",
-  "cannotDeleteTransferCategoryError": "No se puede eliminar la categoría de transferencia activa. Por favor, cámbiala primero en Ajustes."
-
+  "cannotDeleteTransferCategoryError": "No se puede eliminar la categoría de transferencia activa. Por favor, cámbiala primero en Ajustes.",
+  "setRecurrence": "Establecer Recurrencia",
+  "recurrenceRuleFor": "Establecer la regla de recurrencia para:",
+  "frequency": "Frecuencia",
+  "days": "Días",
+  "weeks": "Semanas",
+  "months": "Meses",
+  "years": "Años",
+  "endDate": "Fecha de Fin",
+  "recurrenceSetSuccess": "¡Regla de recurrencia establecida con éxito!",
+  "recurrenceSetError": "Error al establecer la regla de recurrencia.",
+  "optional": "Opcional",
+  "never": "Nunca"
 }

@@ -25,6 +25,7 @@ import Modal from './components/Modal.jsx';
 import Notification from './components/Notification';
 import Pagination from './components/Pagination';
 import RecurrentChart from './components/RecurrentChart.jsx';
+import RecurrenceModal from './components/RecurrenceModal.jsx';
 import SettingsMenu from './components/SettingsMenu.jsx';
 import Spinner from './components/Spinner';
 import TransactionFilters from './components/TransactionFilters';
@@ -74,6 +75,8 @@ function App() {
     amountRange: { min: '', max: '' },
     sort: { by: 'date', order: 'desc' },
   });
+  const [pendingTransaction, setPendingTransaction] = useState(null);
+  const [recurrenceModalIsOpen, setRecurrenceModalIsOpen] = useState(false);
 
   useEffect(() => {
     fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data));
@@ -201,16 +204,8 @@ function App() {
   };
   const fabActions = [{ label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction'), shortcut: 'N' }, { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer'), shortcut: 'T' }, { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true), shortcut: 'A' }];
   const categoryChartFilterControl = ( <select value={categoryChartType} onChange={e => setCategoryChartType(e.target.value)} className="p-1 border rounded-md text-sm bg-gray-50"><option value="expense">{t.expenses}</option><option value="income">{t.income}</option><option value="both">{t.both}</option></select> );
-  const handleAddTransaction = (formData) => {
-    apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify({ ...formData, currency: 'EUR' }) })
-      .then(() => handleTransactionSuccess(t.transactionAddedSuccess))
-      .catch(error => { console.error('Failed to add transaction:', error); showNotification(t.transactionAddError, 'error'); });
-  };
-  const handleUpdateTransaction = (transactionId, formData) => {
-    apiFetch(`/transactions/${transactionId}`, { method: 'PUT', body: JSON.stringify({ ...formData, currency: 'EUR' }) })
-      .then(() => handleTransactionSuccess(t.transactionUpdatedSuccess))
-      .catch(error => { console.error('Failed to update transaction:', error); showNotification(t.transactionUpdateError, 'error'); });
-  };
+  
+  
   const handleAddTransfer = (formData) => {
     const fromAccount = accounts.find(acc => acc.id === parseInt(formData.from_account_id));
     const toAccount = accounts.find(acc => acc.id === parseInt(formData.to_account_id));
@@ -228,6 +223,67 @@ function App() {
       })
       .catch(error => { console.error('Failed to update transfer:', error); showNotification(t.transferUpdateError, 'error'); });
   };
+  // Add these three new functions to App.jsx
+
+  const handleTransactionSubmit = (formData, originalTransaction = null) => {
+    // Check if this is a new recurrent transaction or one being toggled to recurrent
+    const isNewRecurrence = formData.is_recurrent && !originalTransaction?.is_recurrent;
+
+    if (isNewRecurrence) {
+      // If it's a new recurrence, hold the data and open the recurrence modal
+      setPendingTransaction({ ...formData, original: originalTransaction });
+      setActiveForm(null);
+      setEditingTransaction(null);
+      setRecurrenceModalIsOpen(true);
+    } else {
+      // Otherwise, save it directly (handles simple add, simple update, and toggling off recurrence)
+      const apiCall = originalTransaction
+        ? apiFetch(`/transactions/${originalTransaction.id}`, { method: 'PUT', body: JSON.stringify({ ...formData, currency: 'EUR' }) })
+        : apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify({ ...formData, currency: 'EUR' }) });
+      
+      apiCall.then(() => {
+        const message = originalTransaction ? t.transactionUpdatedSuccess : t.transactionAddedSuccess;
+        handleTransactionSuccess(message);
+      }).catch(error => {
+        const message = originalTransaction ? t.transactionUpdateError : t.transactionAddError;
+        console.error('Failed to save transaction:', error);
+        showNotification(message, 'error');
+      });
+    }
+  };
+
+  const handleFinalizeRecurrence = (recurrenceData) => {
+    const { original, ...transactionData } = pendingTransaction;
+    const finalTransactionData = {
+      ...transactionData,
+      ...recurrenceData,
+      currency: 'EUR'
+    };
+
+    const apiCall = original
+      ? apiFetch(`/transactions/${original.id}`, { method: 'PUT', body: JSON.stringify(finalTransactionData) })
+      : apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify(finalTransactionData) });
+    
+    apiCall.then((response) => {
+      const message = original ? t.transactionUpdatedSuccess : t.transactionAddedSuccess;
+      handleDataUpdate(message);
+      setRecurrenceModalIsOpen(false);
+      setPendingTransaction(null);
+    }).catch(error => {
+      console.error('Failed to save recurrent transaction:', error);
+      const message = original ? t.transactionUpdateError : t.transactionAddError;
+      showNotification(message, 'error');
+    });
+  };
+
+  const handleCancelRecurrence = () => {
+    setRecurrenceModalIsOpen(false);
+    if (pendingTransaction.original) {
+      setEditingTransaction(pendingTransaction.original);
+    } else {
+      setActiveForm('transaction'); 
+    }
+  };
 
   if (!activeUser) {
     return <UserSelector onUserSelected={handleSetUser} t={t} language={language} setLanguage={setLanguage} />;
@@ -242,9 +298,8 @@ function App() {
         </div>
       </header>
       
-      {activeForm === 'transaction' && (<Modal title={t.addTransaction} onClose={() => setActiveForm(null)}><AddTransactionForm accounts={accounts} categories={categories} onFormSubmit={handleAddTransaction} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
       {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
-      {editingTransaction && (<Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} accounts={accounts} categories={categories} onFormSubmit={handleUpdateTransaction} onCancel={() => setEditingTransaction(null)} t={t} language={language} /></Modal>)}
+      
       {editingTransferId && (
         <Modal title={t.editTransfer} onClose={() => setEditingTransferId(null)}>
           <EditTransferForm
@@ -257,6 +312,47 @@ function App() {
           />
         </Modal>
       )}
+
+      {activeForm === 'transaction' && (
+        <Modal title={t.addTransaction} onClose={() => { setActiveForm(null); setPendingTransaction(null); /* Add this */ }}>
+          <AddTransactionForm 
+            accounts={accounts} 
+            categories={categories} 
+            onFormSubmit={handleTransactionSubmit} 
+            onCancel={() => { setActiveForm(null); setPendingTransaction(null); /* And this */ }}
+            initialData={pendingTransaction && !pendingTransaction.original ? pendingTransaction : null}
+            t={t} 
+            language={language} 
+          />
+        </Modal>
+      )}
+
+      {editingTransaction && (
+        <Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}>
+          <EditTransactionForm 
+            transaction={editingTransaction} 
+            accounts={accounts} 
+            categories={categories} 
+            onFormSubmit={(transactionId, formData) => handleTransactionSubmit(formData, editingTransaction)} 
+            onCancel={() => setEditingTransaction(null)} 
+            t={t} 
+            language={language} 
+          />
+        </Modal>
+      )}
+
+      {recurrenceModalIsOpen && (
+        <Modal title={t.setRecurrence} onClose={handleCancelRecurrence}>
+          <RecurrenceModal
+            transaction={pendingTransaction}
+            onSave={handleFinalizeRecurrence}
+            onCancel={handleCancelRecurrence}
+            t={t}
+            language={language}
+          />
+        </Modal>
+      )}
+
       {deletingTransaction && (<ConfirmationModal message={`${t.deleteConfirmMessage} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} confirmText={t.delete} cancelText={t.cancel} />)}
       {showChat && <Chat onCancel={() => setShowChat(false)} t={t} />}
       {showSettings && (

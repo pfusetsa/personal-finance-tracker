@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function SettingsMenu({ onManageCategories, onManageAccounts, onSetTransferCategory, t }) { // Add new prop
+function SettingsMenu({ onManageCategories, onManageAccounts, onSetTransferCategory, onLogout, t }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -15,6 +15,8 @@ function SettingsMenu({ onManageCategories, onManageAccounts, onSetTransferCateg
             <li onClick={() => { onManageCategories(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">{t.manageCategories}</li>
             <li onClick={() => { onManageAccounts(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">{t.manageAccounts}</li>
             <li onClick={() => { onSetTransferCategory(); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-t mt-1 pt-2">{t.manageTransferCategory}</li>
+            <li onClick={() => { onLogout(); setIsOpen(false); }} className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer border-t mt-1 pt-2">{t.logout}</li>
+
           </ul>
         </div>
       )}

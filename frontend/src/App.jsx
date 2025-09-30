@@ -38,7 +38,14 @@ const PAGE_SIZE = 10;
 const initialCardVisibility = { incomeVsExpenses: true, category: true, recurrent: true };
 
 function App() {
-  const [activeUser, _setActiveUser] = useState(null);
+  const [activeUser, _setActiveUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('activeUser');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [balanceReportData, setBalanceReportData] = useState(null);
   const [transactionsData, setTransactionsData] = useState(null);
   const [accounts, setAccounts] = useState([]);
@@ -83,13 +90,25 @@ function App() {
     localStorage.setItem('language', language);
   }, [language]);
 
+  useEffect(() => {
+    if (activeUser) {
+      setActiveUser(activeUser.id); // This is the function from apiClient.js
+    }
+  }, [activeUser]);
+
   const handleSetUser = (user) => {
-    setActiveUser(user.id);
+    localStorage.setItem('activeUser', JSON.stringify(user));
     _setActiveUser(user);
   };
 
-  // --- CONSOLIDATED DATA FETCHING ---
-  // This single useEffect now handles all data that depends on the date filters.
+  const handleLogout = () => {
+    localStorage.removeItem('activeUser');
+    _setActiveUser(null);
+    // Optionally reset other states if needed
+    setTransactionsData(null);
+    setBalanceReportData(null);
+  };
+
   useEffect(() => {
     if (!activeUser) return;
 
@@ -294,7 +313,7 @@ function App() {
       <Notification message={notification?.message} type={notification?.type} />
       <header>
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-          <div className="flex justify-between items-center"><div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t.financeTracker}</h1></div><div className="flex items-center space-x-4"><LanguageSelector language={language} setLanguage={setLanguage} /><SettingsMenu onManageCategories={() => openSettings('categories')} onManageAccounts={() => openSettings('accounts')} onSetTransferCategory={() => openSettings('transferCategory')} t={t} /></div></div>
+          <div className="flex justify-between items-center"><div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t.financeTracker}</h1></div><div className="flex items-center space-x-4"><LanguageSelector language={language} setLanguage={setLanguage} /><SettingsMenu onManageCategories={() => openSettings('categories')} onManageAccounts={() => openSettings('accounts')} onSetTransferCategory={() => openSettings('transferCategory')} onLogout={handleLogout} t={t} /></div></div>
         </div>
       </header>
       

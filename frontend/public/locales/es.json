@@ -152,5 +152,6 @@
   "recurrenceSetSuccess": "¡Regla de recurrencia establecida con éxito!",
   "recurrenceSetError": "Error al establecer la regla de recurrencia.",
   "optional": "Opcional",
-  "never": "Nunca"
+  "never": "Nunca",
+  "logout": "Salir / Cambiar Perfil"
 }

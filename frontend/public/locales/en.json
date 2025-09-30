@@ -154,5 +154,6 @@
   "recurrenceSetSuccess": "Recurrence rule set successfully!",
   "recurrenceSetError": "Failed to set recurrence rule.",
   "optional": "Optional",
-  "never": "Never"
+  "never": "Never",
+  "logout": "Log Out / Change Profile"
 }

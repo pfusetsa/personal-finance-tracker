@@ -3,6 +3,33 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 from .. import crud
 
+def get_all_transactions(user_id: int, page: int, page_size: int, **filters):
+    """Applies filtering and pagination to retrieve transactions."""
+    df, total_count = crud.get_all_transactions(
+        user_id=user_id,
+        page=page,
+        page_size=page_size,
+        account_ids=filters.get('account_ids'),
+        category_ids=filters.get('category_ids'),
+        start_date=filters.get('start_date'),
+        end_date=filters.get('end_date'),
+        search_query=filters.get('search_query'),
+        is_recurrent=filters.get('is_recurrent'),
+        amount_min=filters.get('amount_min'),
+        amount_max=filters.get('amount_max'),
+        sort_by=filters.get('sort_by', 'date'),
+        sort_order=filters.get('sort_order', 'desc')
+    )
+    # The service layer is a good place to handle data transformation,
+    # like converting the DataFrame to a list of dictionaries for the API.
+    transactions = df.to_dict(orient="records")
+    return {
+        "transactions": transactions,
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size
+    }
+
 def create_transaction_with_recurrence(transaction_data: dict, user_id: int):
     """Creates a master transaction and, if it's recurrent, generates the full series."""
     is_recurrent = transaction_data.get('is_recurrent', False)
@@ -109,8 +136,18 @@ def _generate_series_from_master(master_tx: dict, user_id: int, recurrence_rules
         )
         current_date += delta
 
+def delete_transaction(transaction_id: int, user_id: int):
+    """Handles the business logic for deleting a transaction."""
+    return crud.delete_transaction(transaction_id, user_id)
 
-# Not used for now
+# --- Transfers ---
+def get_transfer_details(transfer_id: str, user_id: int):
+    """Retrieves the details of a specific transfer."""
+    transfer = crud.get_transfer(transfer_id, user_id)
+    if not transfer:
+        raise ValueError("Transfer not found.")
+    return transfer
+
 def create_transfer(date: str, description: str, amount: float, from_account_id: int, to_account_id: int, user_id: int):
     if from_account_id == to_account_id:
         raise ValueError("Cannot transfer to the same account.")
@@ -122,3 +159,11 @@ def create_transfer(date: str, description: str, amount: float, from_account_id:
     crud.add_transaction(date=date, description=description, amount=-abs(amount), currency='EUR', is_recurrent=False, account_id=from_account_id, category_id=transfer_category_id, user_id=user_id, transfer_id=transfer_id)
     crud.add_transaction(date=date, description=description, amount=abs(amount), currency='EUR', is_recurrent=False, account_id=to_account_id, category_id=transfer_category_id, user_id=user_id, transfer_id=transfer_id)
     return {"status": "success", "message": "Transfer created."}
+
+def update_transfer(transfer_id: str, date: date, amount: float, from_account_id: int, to_account_id: int, user_id: int):
+    """Updates an existing transfer."""
+    return crud.update_transfer(transfer_id, date, amount, from_account_id, to_account_id, user_id)
+
+def batch_process_transactions(instructions: list, user_id: int):
+    """Processes a batch of instructions (e.g., delete, recategorize) for transactions."""
+    return crud.process_batch_instructions(instructions, user_id)

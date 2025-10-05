@@ -43,7 +43,11 @@ function TransactionList({ transactions, onEdit, onDelete, filters, onFilterChan
                         <span>{tx.description}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color.bg} ${color.text}`}>{tx.category}</span></td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color.bg} ${color.text}`}>
+                        {t(tx.category.i18n_key) || tx.category.name}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.account}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{tx.is_recurrent ? t('yes') : t('no')}</td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatMoney(tx.amount, tx.currency)}</td>

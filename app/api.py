@@ -9,7 +9,7 @@ from .services import account_service, ai_service, transaction_service, category
 # --- Pydantic Models ---
 class AccountUpdate(BaseModel): name: str
 class CategoryUpdate(BaseModel): name: str
-class UserCreate(BaseModel): first_name: str; second_name: Optional[str] = None; surname: str
+class UserCreate(BaseModel): first_name: str; second_name: Optional[str] = None; surname: str; preferred_currency: str
 class TransactionCreate(BaseModel): date: date_type; description: str; amount: float; currency: str; is_recurrent: bool; account_id: int; category_id: int; recurrence_num: Optional[int] = None; recurrence_unit: Optional[str] = None; recurrence_end_date: Optional[date_type] = None
 class TransferCreate(BaseModel): date: date_type; description: str; amount: float; from_account_id: int; to_account_id: int
 class TransferUpdate(BaseModel): date: date_type; amount: float; from_account_id: int; to_account_id: int
@@ -35,7 +35,7 @@ def get_all_users():
 
 @app.post("/users/", status_code=201)
 def create_new_user(user: UserCreate):
-    return user_service.create_new_user(user.first_name, user.second_name, user.surname)
+    return user_service.create_new_user(user.first_name, user.second_name, user.surname, preferred_currency=user.preferred_currency)
 
 
 # --- Reports ---
@@ -48,13 +48,13 @@ def get_balance_evolution(user_id: int = Depends(get_current_user_id)):
     return report_service.get_balance_evolution_report(user_id)
 
 @app.get("/reports/category-summary/")
-def get_category_summary_for_chart(start_date: date_type, end_date: date_type, transaction_type: str = 'expense', user_id: int = Depends(get_current_user_id)):
+def get_category_summary_for_chart(start_date: str, end_date: str, transaction_type: str = 'expense', user_id: int = Depends(get_current_user_id)):
     return report_service.get_category_summary_report(
         user_id=user_id, start_date=start_date, end_date=end_date, transaction_type=transaction_type
     )
 
 @app.get("/reports/monthly-income-expense-summary/")
-def get_monthly_income_expense_summary(start_date: date_type, end_date: date_type, user_id: int = Depends(get_current_user_id)):
+def get_monthly_income_expense_summary(start_date: str, end_date: str, user_id: int = Depends(get_current_user_id)):
     return report_service.get_monthly_income_expense_report(
         user_id=user_id, start_date=start_date, end_date=end_date
     )

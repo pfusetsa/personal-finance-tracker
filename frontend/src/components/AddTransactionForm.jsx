@@ -73,7 +73,13 @@ function AddTransactionForm({ onFormSubmit, onCancel, initialData }) {
         </div>
       </div>
       <select name="account_id" value={formData.account_id} onChange={handleChange} className="w-full p-2 border rounded">{accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}</select>
-      <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full p-2 border rounded">{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select>
+      <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full p-2 border rounded">
+        {categories.map(cat => (
+          <option key={cat.id} value={cat.id}>
+            {t(cat.i18n_key) === cat.i18n_key ? cat.name : t(cat.i18n_key)}
+          </option>
+        ))}
+      </select>
       <label className="flex items-center space-x-2"><input type="checkbox" name="is_recurrent" checked={formData.is_recurrent} onChange={handleChange} /><span>{t('recurrent')}</span></label>
       <div className="flex justify-end space-x-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">{t('cancel')}</button>

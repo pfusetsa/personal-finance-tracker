@@ -1,8 +1,11 @@
 import React, { useEffect, useRef } from 'react';
+import { useAppContext } from '../context/AppContext';
 import Chart from 'chart.js/auto';
 import { formatMoney } from '../utils.js';
 
 function BalanceEvolutionChart({ data }) {
+  const { t } = useAppContext();
+
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
   
@@ -39,7 +42,7 @@ function BalanceEvolutionChart({ data }) {
   return (
     // Removed fixed height (h-64) to allow this container to be flexible
     <div className="relative h-full">
-      {(!data || data.length === 0) && <p className="text-center text-gray-500 pt-8">No data to display.</p>}
+      {(!data || data.length === 0) && <p className="text-center text-gray-500 pt-8">{t('noData')}</p>}
       <canvas ref={chartRef}></canvas>
     </div>
   );

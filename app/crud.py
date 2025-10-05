@@ -111,17 +111,23 @@ def delete_transactions_by_account(account_id, user_id):
 
 
 # --- Categories ------------------------------------------------------------------------------------------------------
-def add_category(category_name, user_id):
+def add_category(category_name: str, user_id: int, i18n_key: str | None = None):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO categories (name, user_id) VALUES (?, ?)", (category_name, user_id))
+        cursor.execute(
+            "INSERT INTO categories (name, user_id, i18n_key) VALUES (?, ?, ?)", 
+            (category_name, user_id, i18n_key)
+        )
         conn.commit()
         category_id = cursor.lastrowid
         return category_id
 
 def get_categories(user_id):
     with get_db_connection() as conn:
-        categories = conn.execute("SELECT id, name FROM categories WHERE user_id = ? ORDER BY name COLLATE NOCASE", (user_id,)).fetchall()
+        categories = conn.execute(
+            "SELECT id, name, i18n_key FROM categories WHERE user_id = ? ORDER BY name COLLATE NOCASE", 
+            (user_id,)
+        ).fetchall()
         return [dict(row) for row in categories]
 
 def get_category_by_name(category_name, user_id):
@@ -129,9 +135,12 @@ def get_category_by_name(category_name, user_id):
         category = conn.execute("SELECT id, name FROM categories WHERE name = ? AND user_id = ?", (category_name, user_id)).fetchone()
         return dict(category) if category else None
 
-def update_category(category_id, name, user_id):
+def update_category(category_id: int, name: str, user_id: int, i18n_key: str | None):
     with get_db_connection() as conn:
-        conn.execute("UPDATE categories SET name = ? WHERE id = ? AND user_id = ?", (name, category_id, user_id))
+        conn.execute(
+            "UPDATE categories SET name = ?, i18n_key = ? WHERE id = ? AND user_id = ?", 
+            (name, i18n_key, category_id, user_id)
+        )
         conn.commit()
         return True
 
@@ -250,12 +259,7 @@ def get_all_transactions(
 ):
     with get_db_connection() as conn:
         base_query = "FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id"
-        
-        # --- THIS IS THE FIX ---
-        # We now filter to only show confirmed transactions or pending ones that are overdue.
         where_clauses = ["t.user_id = ?", "(t.status = 'confirmed' OR t.date <= date('now'))"]
-        # --- END OF FIX ---
-        
         params = [user_id]
         
         if account_ids:
@@ -295,7 +299,7 @@ def get_all_transactions(
         total_count = conn.execute(count_query, params).fetchone()[0]
         
         offset = (page - 1) * page_size
-        select_statement = "SELECT t.id, t.date, t.description, c.name as category, a.name as account, t.amount, t.currency, t.account_id, t.category_id, t.is_recurrent, t.transfer_id, t.status, t.recurrence_id"
+        select_statement = "SELECT t.id, t.date, t.description, c.name as category_name, c.i18n_key as category_i18n_key, a.name as account, t.amount, t.currency, t.account_id, t.category_id, t.is_recurrent, t.transfer_id, t.status, t.recurrence_id"
         paginated_query = f"{select_statement} {base_query} {where_statement} {order_by_statement} LIMIT ? OFFSET ?;"
         paginated_params = params + [page_size, offset]
         

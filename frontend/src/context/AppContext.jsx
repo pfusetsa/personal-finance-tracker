@@ -21,42 +21,55 @@ export function AppProvider({ children }) {
   const [categories, setCategories] = useState([]);
   const [balanceReportData, setBalanceReportData] = useState(null);
   const [balanceEvolutionData, setBalanceEvolutionData] = useState(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const triggerRefresh = () => setRefreshTrigger(c => c + 1);
 
   useEffect(() => {
-    if (activeUser?.id) {
-      setIsLoading(true);
-      setApiClientUser(activeUser.id);
-      
-      // All global and dashboard data is fetched here, in the correct order
-      Promise.all([
-        apiFetch('/accounts/'),
-        apiFetch('/categories/'),
-        apiFetch('/reports/balance/'),
-        apiFetch('/reports/balance-evolution/')
-      ]).then(([accountsData, categoriesData, balanceData, evolutionData]) => {
-        setAccounts(accountsData);
-        setCategories(categoriesData);
-        setBalanceReportData(balanceData);
-        setBalanceEvolutionData(evolutionData);
-        setIsLoading(false);
-      }).catch(error => {
-        console.error("Failed to load initial data", error);
-        setIsLoading(false);
-      });
-    } else {
-      setIsLoading(false);
-      setAccounts([]);
-      setCategories([]);
-    }
-  }, [activeUser, refreshTrigger]);
+    const loadAppData = async () => {
+      if (activeUser?.id) {
+        setIsLoading(true);
+        setApiClientUser(activeUser.id);
 
-  useEffect(() => {
-    fetch(`/locales/${language}.json`).then(res => res.json()).then(setTranslations);
-    localStorage.setItem('language', language);
-  }, [language]);
+        try {
+          const [
+            accountsData, 
+            categoriesData, 
+            balanceData, 
+            evolutionData,
+            translationsData
+          ] = await Promise.all([
+            apiFetch('/accounts/'),
+            apiFetch('/categories/'),
+            apiFetch('/reports/balance/'),
+            apiFetch('/reports/balance-evolution/'),
+            fetch(`/locales/${language}.json`).then(res => res.json())
+          ]);
+
+          setTranslations(translationsData);
+          setAccounts(accountsData);
+          setCategories(categoriesData);
+          setBalanceReportData(balanceData);
+          setBalanceEvolutionData(evolutionData);
+
+          if (accountsData.length === 0) {
+            setShowOnboarding(true);
+          }
+        } catch (error) {
+          console.error("Failed to load initial data", error);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setAccounts([]);
+        setCategories([]);
+        setIsLoading(false);
+      }
+    };
+
+    loadAppData();
+  }, [activeUser, refreshTrigger, language]);
 
   const handleSetUser = (user) => {
     localStorage.setItem('activeUser', JSON.stringify(user));
@@ -68,14 +81,35 @@ export function AppProvider({ children }) {
     _setActiveUser(null);
   };
 
+  const completeOnboarding = () => setShowOnboarding(false);
 
   const value = {
-    isLoading, activeUser, handleSetUser, handleLogout,
-    accounts, categories, balanceReportData, balanceEvolutionData,
-    language, setLanguage, translations, t: (key) => translations?.[key] || key,
+    isLoading, 
+    activeUser, 
+    handleSetUser, 
+    handleLogout,
+    accounts, 
+    categories, 
+    balanceReportData, 
+    balanceEvolutionData,
+    language, 
+    setLanguage, 
+    translations, 
     triggerRefresh,
+    showOnboarding,
+    completeOnboarding,
+    t: (key, params) => {
+      if (!translations || !translations[key]) return key;
+      let text = translations[key];
+      if (params) {
+        Object.keys(params).forEach(p => {
+          const regex = new RegExp(`\\{${p}\\}`, 'g');
+          text = text.replace(regex, params[p]);
+        });
+      }
+      return text;
+    },
   };
-
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

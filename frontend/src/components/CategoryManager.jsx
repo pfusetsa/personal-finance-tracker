@@ -134,28 +134,31 @@ function CategoryManager({ onUpdate }) {
         <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">{ t('add')}</button>
       </form>
       <ul className="space-y-2">
-        {categories.map(category => (
-          <li key={category.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-            {editingCategory?.id === category.id ? (
-              <form onSubmit={handleUpdateCategory} className="flex-grow flex space-x-2">
-                <input type="text" value={editingCategory.name} onChange={(e) => setEditingCategory({...editingCategory, name: e.target.value})} className="flex-grow p-1 border rounded" autoFocus />
-                <button type="submit" className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">{ t('save')}</button>
-                <button type="button" onClick={() => setEditingCategory(null)} className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 text-sm">{ t('cancel')}</button>
-              </form>
-            ) : (
-              <>
-                <div className="flex items-center space-x-2">
-                  <span>{category.name}</span>
-                  {category.id === transferCategoryId && <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{t('transfer') || 'Transfer'}</span>}
-                </div>
-                <div className="flex items-center space-x-3">
-                  <button onClick={() => setEditingCategory(category)} className="text-blue-600 hover:text-blue-800" title={t('edit')}><EditIcon /></button>
-                  <button onClick={() => initiateDelete(category)} className="text-red-600 hover:text-red-800" title={t('delete')}><DeleteIcon /></button>
-                </div>
-              </>
-            )}
-          </li>
-        ))}
+        {categories.map(category => {
+
+          return (
+            <li key={category.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+              {editingCategory?.id === category.id ? (
+                <form onSubmit={handleUpdateCategory} className="flex-grow flex space-x-2">
+                  <input type="text" value={editingCategory.name} onChange={(e) => setEditingCategory({...editingCategory, name: e.target.value})} className="flex-grow p-1 border rounded" autoFocus />
+                  <button type="submit" className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">{t('save')}</button>
+                  <button type="button" onClick={() => setEditingCategory(null)} className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 text-sm">{t('cancel')}</button>
+                </form>
+              ) : (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <span>{t(category.i18n_key) === category.i18n_key ? category.name : t(category.i18n_key)}</span>
+                    {category.id === transferCategoryId && <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{t('transfer')}</span>}
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <button onClick={() => setEditingCategory(category)} className="text-blue-600 hover:text-blue-800" title={t('edit')}><EditIcon /></button>
+                    <button onClick={() => initiateDelete(category)} className="text-red-600 hover:text-red-800" title={t('delete')}><DeleteIcon /></button>
+                  </div>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
       
       {simpleDeleteTarget && ( <ConfirmationModal message={`${ t('deleteConfirmMessage')} "${simpleDeleteTarget.name}"?`} onConfirm={confirmSimpleDelete} onCancel={() => setSimpleDeleteTarget(null)} confirmText={ t('delete')} cancelText={ t('cancel')} /> )}

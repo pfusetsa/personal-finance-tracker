@@ -16,7 +16,7 @@ def create_category(name: str, user_id: int):
 def update_category(category_id: int, name: str, user_id: int):
     """Handles the business logic for updating a category."""
     try:
-        crud.update_category(category_id, name, user_id)
+        crud.update_category(category_id, name, user_id, i18n_key=None)
         return True
     except sqlite3.IntegrityError:
         raise ValueError(f"A category with the name '{name}' already exists.")

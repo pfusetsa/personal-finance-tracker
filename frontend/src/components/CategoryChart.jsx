@@ -50,7 +50,7 @@ function CategoryChart({ title, data }) {
       <h2 className="text-xl font-semibold text-gray-700 mb-4">{title}</h2>
       <div className="relative h-64">
         {!data && <p>Loading chart...</p>}
-        {data && data.length === 0 && <p className="text-center text-gray-500 pt-8">No data to display for this period.</p>}
+        {data && data.length === 0 && <p className="text-center text-gray-500 pt-8">{t('noData')}</p>}
         <canvas ref={chartRef}></canvas>
       </div>
     </div>

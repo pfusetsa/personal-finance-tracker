@@ -89,7 +89,7 @@ function TransferCategorySelector({ onUpdate, onComplete }) {
             className="w-full p-2 border rounded"
           >
             {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
+              <option key={cat.id} value={cat.id}>{t(cat.i18n_key) === cat.i18n_key ? cat.name : t(cat.i18n_key)}</option>
             ))}
           </select>
           <div className="flex justify-end">

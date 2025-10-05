@@ -4,7 +4,10 @@ from datetime import date
 def get_balance_report(user_id: int):
     """Generates the balance report for a user."""
     report_df, total_balance = crud.get_balance_report(user_id)
-    return {"balances_by_account": report_df.to_dict(orient="records"), "total_balance": total_balance}
+    
+    final_total_balance = float(total_balance)
+    
+    return {"balances_by_account": report_df.to_dict(orient="records"), "total_balance": final_total_balance}
 
 def get_balance_evolution_report(user_id: int):
     """Generates the balance evolution report for a user."""

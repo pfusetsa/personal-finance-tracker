@@ -20,11 +20,16 @@ def get_all_transactions(user_id: int, page: int, page_size: int, **filters):
         sort_by=filters.get('sort_by', 'date'),
         sort_order=filters.get('sort_order', 'desc')
     )
-    # The service layer is a good place to handle data transformation,
-    # like converting the DataFrame to a list of dictionaries for the API.
-    transactions = df.to_dict(orient="records")
+    
+    transactions_list = df.to_dict(orient="records")
+    for tx in transactions_list:
+        tx['category'] = {
+            'name': tx.pop('category_name', None),
+            'i18n_key': tx.pop('category_i18n_key', None)
+        }
+        
     return {
-        "transactions": transactions,
+        "transactions": transactions_list,
         "total_count": total_count,
         "page": page,
         "page_size": page_size

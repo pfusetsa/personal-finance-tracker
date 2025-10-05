@@ -24,6 +24,7 @@ import LanguageSelector from './components/LanguageSelector.jsx';
 import Logo from './components/Logo.jsx';
 import Modal from './components/Modal.jsx';
 import Notification from './components/Notification';
+import OnboardingWizard from './components/OnboardingWizard.jsx';
 import Pagination from './components/Pagination';
 import RecurrentChart from './components/RecurrentChart.jsx';
 import RecurrenceModal from './components/RecurrenceModal.jsx';
@@ -43,7 +44,7 @@ function App() {
   const { 
     isLoading, activeUser, t, handleSetUser,
     accounts, categories, balanceReportData, balanceEvolutionData,
-    triggerRefresh
+    triggerRefresh, showOnboarding, completeOnboarding
   } = useAppContext();
 
   // --- Local State (for UI interaction and non-global data) ---
@@ -77,6 +78,7 @@ function App() {
   const [incomeExpenseData, setIncomeExpenseData] = useState(null);
   const [categorySummaryData, setCategorySummaryData] = useState(null);
   const [recurrentData, setRecurrentData] = useState(null);
+  const [onboardingStep, setOnboardingStep] = useState('welcome');
   
   // --- Local useEffects ---
   useEffect(() => {
@@ -233,94 +235,102 @@ function App() {
       setActiveForm('transaction'); 
     }
   };
-
+  
   // --- Render Logic ---
-if (isLoading || !t('financeTracker')) {
-  return <div className="p-8 text-center">Loading TrakFin...</div>;
+  if (isLoading || !t('financeTracker')) {
+    return <div className="p-8 text-center">Loading TrakFin...</div>;
+  }
+
+  if (!activeUser) {
+    return <UserSelector />; // No props needed!
+  }
+
+  if (showOnboarding) {
+  return <OnboardingWizard 
+            onComplete={() => { completeOnboarding(); setOnboardingStep('welcome'); }} 
+            step={onboardingStep} 
+            setStep={setOnboardingStep} 
+         />;
 }
 
-if (!activeUser) {
-  return <UserSelector />; // No props needed!
-}
-
-const fabActions = [{ label: t('addTransaction'), icon: 'transaction', onClick: () => setActiveForm('transaction'), shortcut: 'N' }, { label: t('addTransfer'), icon: 'transfer', onClick: () => setActiveForm('transfer'), shortcut: 'T' }, { label: t('askAI'), icon: 'ai', onClick: () => setShowChat(true), shortcut: 'A' }];
-const categoryChartFilterControl = ( <select value={categoryChartType} onChange={e => setCategoryChartType(e.target.value)} className="p-1 border rounded-md text-sm bg-gray-50"><option value="expense">{t('expenses')}</option><option value="income">{t('income')}</option><option value="both">{t('both')}</option></select> );
-
-return (
-  <div className="container mx-auto p-4 md:p-8">
-    <Notification message={notification?.message} type={notification?.type} />
-    <header>
-      <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t('financeTracker')}</h1></div>
-          <div className="flex items-center space-x-4">
-            <LanguageSelector />
-            <SettingsMenu 
-              onManageCategories={() => openSettings('categories')} 
-              onManageAccounts={() => openSettings('accounts')} 
-              onSetTransferCategory={() => openSettings('transferCategory')} 
-            />
+  const fabActions = [{ label: t('addTransaction'), icon: 'transaction', onClick: () => setActiveForm('transaction'), shortcut: 'N' }, { label: t('addTransfer'), icon: 'transfer', onClick: () => setActiveForm('transfer'), shortcut: 'T' }, { label: t('askAI'), icon: 'ai', onClick: () => setShowChat(true), shortcut: 'A' }];
+  const categoryChartFilterControl = ( <select value={categoryChartType} onChange={e => setCategoryChartType(e.target.value)} className="p-1 border rounded-md text-sm bg-gray-50"><option value="expense">{t('expenses')}</option><option value="income">{t('income')}</option><option value="both">{t('both')}</option></select> );
+  
+  return (
+    <div className="container mx-auto p-4 md:p-8">
+      <Notification message={notification?.message} type={notification?.type} />
+      <header>
+        <div className="bg-white shadow-md rounded-lg p-6 mb-8">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t('financeTracker')}</h1></div>
+            <div className="flex items-center space-x-4">
+              <LanguageSelector />
+              <SettingsMenu 
+                onManageCategories={() => openSettings('categories')} 
+                onManageAccounts={() => openSettings('accounts')} 
+                onSetTransferCategory={() => openSettings('transferCategory')} 
+              />
+            </div>
           </div>
         </div>
-      </div>
-    </header>
-    
-    {activeForm === 'transfer' && ( <Modal title={t('addTransfer')} onClose={() => setActiveForm(null)}><AddTransferForm onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} /></Modal> )}
-    {editingTransferId && ( <Modal title={t('editTransfer')} onClose={() => setEditingTransferId(null)}><EditTransferForm transferId={editingTransferId} onFormSubmit={handleUpdateTransfer} onCancel={() => setEditingTransferId(null)}/></Modal> )}
-    {activeForm === 'transaction' && ( <Modal title={t('addTransaction')} onClose={() => { setActiveForm(null); setPendingTransaction(null); }}><AddTransactionForm onFormSubmit={handleTransactionSubmit} onCancel={() => { setActiveForm(null); setPendingTransaction(null); }} initialData={pendingTransaction && !pendingTransaction.original ? pendingTransaction : null}/></Modal> )}
-    {editingTransaction && ( <Modal title={t('editTransaction')} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} onFormSubmit={(transactionId, formData) => handleTransactionSubmit(formData, editingTransaction)} onCancel={() => setEditingTransaction(null)} /></Modal> )}
-    {recurrenceModalIsOpen && ( <Modal title={t('setRecurrence')} onClose={handleCancelRecurrence}><RecurrenceModal transaction={pendingTransaction} onSave={handleFinalizeRecurrence} onCancel={handleCancelRecurrence} /></Modal> )}
-    {deletingTransaction && (<ConfirmationModal message={`${t('deleteConfirmMessage')} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} />)}
-    {showChat && <Chat onCancel={() => setShowChat(false)} />}
-    {showSettings && (
-      <Modal 
-        title={ settingsView === 'categories' ? t('manageCategories') : settingsView === 'accounts' ? t('manageAccounts') : t('manageTransferCategory') } 
-        onClose={() => setShowSettings(false)}
-      >
-        {settingsView === 'categories' && <CategoryManager onUpdate={handleDataUpdate}/>}
-        {settingsView === 'accounts' && <AccountManager onUpdate={handleDataUpdate}/>}
-        {settingsView === 'transferCategory' && <TransferCategorySelector onUpdate={handleDataUpdate} onComplete={() => setShowSettings(false)} />}
-      </Modal>
-    )}
-    
-    <main>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        <div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData}/> : <BalanceReportSkeleton />}</div>
-        <div className="lg:col-span-2"><ChartCard title={t('balanceEvolution')} isOpen={true}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <ChartSkeleton />}</ChartCard></div>
-      </div>
-      <ChartFilters period={chartPeriod} setChartPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} />
-      <div className="space-y-8 mt-8">
-        <ChartCard title={t('incomeVsExpenses')} isOpen={cardVisibility.incomeVsExpenses} onToggle={() => toggleCardVisibility('incomeVsExpenses')}>{incomeExpenseData ? <IncomeExpenseChart data={incomeExpenseData} /> : <ChartSkeleton />}</ChartCard>
-        <ChartCard title={t('summaryByCategory')} isOpen={cardVisibility.category} onToggle={() => toggleCardVisibility('category')} headerControls={categoryChartFilterControl}>{categorySummaryData ? <CategoryChart data={categorySummaryData} /> : <ChartSkeleton />}</ChartCard>
-        <ChartCard title={t('recurrentTransactions')} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>{recurrentData ? <RecurrentChart data={recurrentData} /> : <ChartSkeleton />}</ChartCard>
-      </div>
-      <div className="mt-8">
-        {transactionsData ? (
-          <>
-            <TransactionList 
-              transactions={transactionsData.transactions} 
-              onEdit={(tx) => tx.transfer_id ? setEditingTransferId(tx.transfer_id) : setEditingTransaction(tx)} 
-              onDelete={setDeletingTransaction} 
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              isFiltering={isFiltering}
-            />
-            <Pagination 
-              currentPage={currentPage} 
-              totalItems={transactionsData.total_count} 
-              itemsPerPage={PAGE_SIZE} 
-              onPageChange={setCurrentPage} 
-            />
-          </>
-        ) : ( <TransactionListSkeleton /> )}
-      </div>
-    </main>
+      </header>
+      
+      {activeForm === 'transfer' && ( <Modal title={t('addTransfer')} onClose={() => setActiveForm(null)}><AddTransferForm onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} /></Modal> )}
+      {editingTransferId && ( <Modal title={t('editTransfer')} onClose={() => setEditingTransferId(null)}><EditTransferForm transferId={editingTransferId} onFormSubmit={handleUpdateTransfer} onCancel={() => setEditingTransferId(null)}/></Modal> )}
+      {activeForm === 'transaction' && ( <Modal title={t('addTransaction')} onClose={() => { setActiveForm(null); setPendingTransaction(null); }}><AddTransactionForm onFormSubmit={handleTransactionSubmit} onCancel={() => { setActiveForm(null); setPendingTransaction(null); }} initialData={pendingTransaction && !pendingTransaction.original ? pendingTransaction : null}/></Modal> )}
+      {editingTransaction && ( <Modal title={t('editTransaction')} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} onFormSubmit={(transactionId, formData) => handleTransactionSubmit(formData, editingTransaction)} onCancel={() => setEditingTransaction(null)} /></Modal> )}
+      {recurrenceModalIsOpen && ( <Modal title={t('setRecurrence')} onClose={handleCancelRecurrence}><RecurrenceModal transaction={pendingTransaction} onSave={handleFinalizeRecurrence} onCancel={handleCancelRecurrence} /></Modal> )}
+      {deletingTransaction && (<ConfirmationModal message={`${t('deleteConfirmMessage')} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} />)}
+      {showChat && <Chat onCancel={() => setShowChat(false)} />}
+      {showSettings && (
+        <Modal 
+          title={ settingsView === 'categories' ? t('manageCategories') : settingsView === 'accounts' ? t('manageAccounts') : t('manageTransferCategory') } 
+          onClose={() => setShowSettings(false)}
+        >
+          {settingsView === 'categories' && <CategoryManager onUpdate={handleDataUpdate}/>}
+          {settingsView === 'accounts' && <AccountManager onUpdate={handleDataUpdate}/>}
+          {settingsView === 'transferCategory' && <TransferCategorySelector onUpdate={handleDataUpdate} onComplete={() => setShowSettings(false)} />}
+        </Modal>
+      )}
+      
+      <main>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData}/> : <BalanceReportSkeleton />}</div>
+          <div className="lg:col-span-2"><ChartCard title={t('balanceEvolution')} isOpen={true}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <ChartSkeleton />}</ChartCard></div>
+        </div>
+        <ChartFilters period={chartPeriod} setChartPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} />
+        <div className="space-y-8 mt-8">
+          <ChartCard title={t('incomeVsExpenses')} isOpen={cardVisibility.incomeVsExpenses} onToggle={() => toggleCardVisibility('incomeVsExpenses')}>{incomeExpenseData ? <IncomeExpenseChart data={incomeExpenseData} /> : <ChartSkeleton />}</ChartCard>
+          <ChartCard title={t('summaryByCategory')} isOpen={cardVisibility.category} onToggle={() => toggleCardVisibility('category')} headerControls={categoryChartFilterControl}>{categorySummaryData ? <CategoryChart data={categorySummaryData} /> : <ChartSkeleton />}</ChartCard>
+          <ChartCard title={t('recurrentTransactions')} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>{recurrentData ? <RecurrentChart data={recurrentData} /> : <ChartSkeleton />}</ChartCard>
+        </div>
+        <div className="mt-8">
+          {transactionsData ? (
+            <>
+              <TransactionList 
+                transactions={transactionsData.transactions} 
+                onEdit={(tx) => tx.transfer_id ? setEditingTransferId(tx.transfer_id) : setEditingTransaction(tx)} 
+                onDelete={setDeletingTransaction} 
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                isFiltering={isFiltering}
+              />
+              <Pagination 
+                currentPage={currentPage} 
+                totalItems={transactionsData.total_count} 
+                itemsPerPage={PAGE_SIZE} 
+                onPageChange={setCurrentPage} 
+              />
+            </>
+          ) : ( <TransactionListSkeleton /> )}
+        </div>
+      </main>
 
-    <div className="fixed bottom-8 right-8 z-40">
-      <FloatingActionButton actions={fabActions} onToggle={setIsFabOpen} />
+      <div className="fixed bottom-8 right-8 z-40">
+        <FloatingActionButton actions={fabActions} onToggle={setIsFabOpen} />
+      </div>
     </div>
-  </div>
-);
+  );
 }
 
 export default App;

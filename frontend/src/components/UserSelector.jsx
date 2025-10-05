@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../apiClient';
+import { useAppContext } from '../context/AppContext';
 import Logo from './Logo';
-import LanguageSelector from './LanguageSelector';
-import { useAppContext } from '../context/AppContext'; 
+import LanguageSelector from './LanguageSelector'; 
 
-function UserSelector() {
-
+function UserSelector() { 
   const { handleSetUser, t } = useAppContext();
 
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newUser, setNewUser] = useState({ first_name: '', second_name: '', surname: '' });
+  const [newUser, setNewUser] = useState({ 
+    first_name: '', 
+    second_name: '', 
+    surname: '',
+    preferred_currency: 'EUR',
+  });
 
   useEffect(() => {
     apiFetch('/users/').then(setUsers);
@@ -32,6 +36,10 @@ function UserSelector() {
     }).then(createdUser => {
       handleSetUser(createdUser);
     });
+  };
+
+  const handleNewUserChange = (e) => {
+    setNewUser({...newUser, [e.target.name]: e.target.value});
   };
 
   return (
@@ -75,9 +83,25 @@ function UserSelector() {
         ) : (
           <form onSubmit={handleCreateUser} className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-700">{t('createNewProfile')}</h2>
-            <input type="text" placeholder={t('firstName')} required value={newUser.first_name} onChange={e => setNewUser({...newUser, first_name: e.target.value})} className="w-full p-2 border rounded" />
-            <input type="text" placeholder={t('secondName')} value={newUser.second_name} onChange={e => setNewUser({...newUser, second_name: e.target.value})} className="w-full p-2 border rounded" />
-            <input type="text" placeholder={t('surname')} required value={newUser.surname} onChange={e => setNewUser({...newUser, surname: e.target.value})} className="w-full p-2 border rounded" />
+            <input type="text" name="first_name" placeholder={t('firstName')} required value={newUser.first_name} onChange={handleNewUserChange} className="w-full p-2 border rounded" />
+            <input type="text" name="second_name" placeholder={t('secondName')} value={newUser.second_name} onChange={handleNewUserChange} className="w-full p-2 border rounded" />
+            <input type="text" name="surname" placeholder={t('surname')} required value={newUser.surname} onChange={handleNewUserChange} className="w-full p-2 border rounded" />
+            
+            <div>
+              <label htmlFor="preferred_currency" className="block text-sm font-medium text-gray-700">{t('preferredCurrency')}</label>
+              <select 
+                id="preferred_currency"
+                name="preferred_currency" 
+                value={newUser.preferred_currency} 
+                onChange={handleNewUserChange} 
+                className="w-full p-2 border rounded mt-1 bg-white"
+              >
+                <option value="EUR">{t('euro')}</option>
+                <option value="USD">{t('usDollar')}</option>
+                <option value="GBP">{t('britishPound')}</option>
+              </select>
+            </div>
+
             <div className="flex space-x-2">
               <button type="button" onClick={() => setShowCreateForm(false)} className="w-full bg-gray-300 p-2 rounded-lg hover:bg-gray-400">{t('cancel')}</button>
               <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700">{t('createAndLoad')}</button>

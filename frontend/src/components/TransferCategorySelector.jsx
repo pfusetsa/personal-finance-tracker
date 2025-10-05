@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../apiClient';
+import { useAppContext } from '../context/AppContext';
 import TransferMigrationModal from './TransferMigrationModal';
 import PerTransactionManagerModal from './PerTransactionManagerModal';
 
-function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
+function TransferCategorySelector({ onUpdate, onComplete }) {
+
+  const { categories, t } = useAppContext();
+
   const [initialCategoryId, setInitialCategoryId] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [modalStep, setModalStep] = useState('selection'); 
@@ -12,8 +16,9 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
     apiFetch('/settings/transfer_category_id')
       .then(data => {
         if (data) {
-          setInitialCategoryId(data.value);
-          setSelectedCategoryId(data.value);
+          const id = data.value.toString();
+          setInitialCategoryId(id);
+          setSelectedCategoryId(id);
         }
       })
       .catch(err => console.error("Could not fetch transfer category setting:", err));
@@ -34,7 +39,7 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
 
   const handleMigrationConfirm = (strategy) => {
     if (strategy === 'per_transaction') {
-      setModalStep('per_transaction'); // Show the per-transaction modal
+      setModalStep('per_transaction');
       return;
     }
 
@@ -44,14 +49,12 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
         value: selectedCategoryId,
         original_value: initialCategoryId,
         migration_strategy: strategy,
-       }),
+      }),
     })
     .then(res => {
-      if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); }
-      handleFinalizeSettingUpdate(t.transferCategoryUpdated);
+      handleFinalizeSettingUpdate(t('transferCategoryUpdated'));
     })
-    .then(() => { handleFinalizeSettingUpdate(t.transferCategoryUpdated); })
-    .catch(err => onUpdate(err.message, 'error'));
+    .catch(err => onUpdate(err.message || 'An error occurred', 'error'));
   };
 
   const handlePerTxManageComplete = (didFinish) => {
@@ -61,12 +64,10 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
         method: 'PUT',
         body: JSON.stringify({ value: selectedCategoryId, migration_strategy: 'keep_unchanged' }),
       })
-      .then(res => {
-        if (!res.ok) { return res.json().then(err => { throw new Error(err.detail); }); }
-        handleFinalizeSettingUpdate(t.transferCategoryUpdated);
+      .then(() => { // No need to parse JSON on a successful PUT
+        handleFinalizeSettingUpdate(t('transferCategoryUpdated'));
       })
-      .then(() => { handleFinalizeSettingUpdate(t.transferCategoryUpdated); })
-      .catch(err => onUpdate(err.message, 'error'));
+      .catch(err => onUpdate(err.message || 'An error occurred', 'error'));
     }
   };
 
@@ -81,7 +82,7 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
     <>
       {modalStep === 'selection' && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">{t.transferCategoryInfo}</p>
+          <p className="text-sm text-gray-600">{ t('transferCategoryInfo')}</p>
           <select 
             value={selectedCategoryId}
             onChange={(e) => setSelectedCategoryId(e.target.value)}
@@ -96,7 +97,7 @@ function TransferCategorySelector({ categories, onUpdate, t, onComplete }) {
               onClick={handleSave} 
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              {t.save}
+              { t('save')}
             </button>
           </div>
         </div>

@@ -60,7 +60,8 @@ def get_monthly_income_expense_summary(start_date: date_type, end_date: date_typ
     )
 
 @app.get("/reports/recurrent-summary/")
-def get_recurrent_summary(start_date: date_type, end_date: date_type, user_id: int = Depends(get_current_user_id)):
+def get_recurrent_summary(start_date: str, end_date: str, user_id: int = Depends(get_current_user_id)):
+    # The service function already handles string dates, so we just pass them through.
     return report_service.get_recurrent_summary_report(
         user_id=user_id, start_date=start_date, end_date=end_date
     )
@@ -168,8 +169,8 @@ def get_all_transactions(
     page_size: int = 10,
     account_ids: Optional[list[int]] = Query(None),
     category_ids: Optional[list[int]] = Query(None),
-    start_date: Optional[date_type] = None,
-    end_date: Optional[date_type] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     search: Optional[str] = None,
     recurrent: Optional[bool] = None,
     amount_min: Optional[float] = None,
@@ -177,12 +178,11 @@ def get_all_transactions(
     sort_by: Optional[str] = 'date',
     sort_order: Optional[str] = 'desc'
 ):
-    # Collect all filter arguments into a dictionary
     filters = {
         "account_ids": account_ids,
         "category_ids": category_ids,
-        "start_date": str(start_date) if start_date else None,
-        "end_date": str(end_date) if end_date else None,
+        "start_date": start_date,
+        "end_date": end_date,
         "search_query": search,
         "is_recurrent": recurrent,
         "amount_min": amount_min,

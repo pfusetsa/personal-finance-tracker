@@ -1,8 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import Chart from 'chart.js/auto';
-import { formatMoney } from '../utils.js'; // FIX: Use formatMoney
+import { useAppContext } from '../context/AppContext';
+import { formatMoney } from '../utils.js';
 
-function RecurrentChart({ title, data, t }) {
+function RecurrentChart({ title, data }) {
+
+  const { t } = useAppContext();
+
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
 
@@ -15,8 +19,8 @@ function RecurrentChart({ title, data, t }) {
         data: {
           labels: data.map(d => d.category),
           datasets: [
-            { label: t.income, data: data.map(d => d.income), backgroundColor: 'rgba(75, 192, 192, 0.6)' },
-            { label: t.expenses, data: data.map(d => d.expenses), backgroundColor: 'rgba(255, 99, 132, 0.6)' }
+            { label:  t('income'), data: data.map(d => d.income), backgroundColor: 'rgba(75, 192, 192, 0.6)' },
+            { label:  t('expenses'), data: data.map(d => d.expenses), backgroundColor: 'rgba(255, 99, 132, 0.6)' }
           ]
         },
         options: {

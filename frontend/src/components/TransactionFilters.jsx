@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useAppContext } from '../context/AppContext';
 import FilterPopover from './FilterPopover';
 import DatePicker from './DatePicker';
 import FilterIcon from './icons/FilterIcon';
 import FilterIconFilled from './icons/FilterIconFilled'; 
 
 // --- Sub-component for Multi-Select Checklists (Categories & Accounts) ---
-function MultiSelectFilter({ options, selectedIds, onApply, t }) {
+function MultiSelectFilter({ options, selectedIds, onApply }) {
+  const { t } = useAppContext(); // Get 't' from context
   const [selected, setSelected] = useState(new Set(selectedIds));
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -33,7 +35,7 @@ function MultiSelectFilter({ options, selectedIds, onApply, t }) {
     <div className="space-y-2">
       <input
         type="text"
-        placeholder={t.search}
+        placeholder={t('search')}
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         className="w-full p-1 border rounded text-sm"
@@ -41,11 +43,7 @@ function MultiSelectFilter({ options, selectedIds, onApply, t }) {
       <div className="max-h-48 overflow-y-auto pr-2">
         {filteredOptions.map(option => (
           <label key={option.id} className="flex items-center space-x-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={selected.has(option.id)}
-              onChange={() => handleSelect(option.id)}
-            />
+            <input type="checkbox" checked={selected.has(option.id)} onChange={() => handleSelect(option.id)} />
             <span>{option.name}</span>
           </label>
         ))}
@@ -55,7 +53,10 @@ function MultiSelectFilter({ options, selectedIds, onApply, t }) {
 }
 
 // --- Main Component for the entire Table Header ---
-function TransactionFilters({ filters, onFilterChange, accounts, categories, t, language }) {
+function TransactionFilters({ filters, onFilterChange }) {
+
+  const { accounts, categories, t, language } = useAppContext();
+
   const [openFilter, setOpenFilter] = useState(null);
   const [localFilters, setLocalFilters] = useState(filters);
 
@@ -104,7 +105,6 @@ function TransactionFilters({ filters, onFilterChange, accounts, categories, t, 
       onApply={handleApply} 
       onClear={() => handleClear(key)}
       onClose={() => setOpenFilter(null)}
-      t={t}
     >
       {content}
     </FilterPopover>
@@ -118,12 +118,12 @@ function TransactionFilters({ filters, onFilterChange, accounts, categories, t, 
       <tr>
         <th className={thClassName}>
           <div className="flex items-center cursor-pointer" onClick={() => handleToggle('date')}>
-            {t.date}
+            {t('date')}
             {isFilterActive('dateRange') || isFilterActive('sort') ? <FilterIconFilled /> : <FilterIcon />}
           </div>
-          {openFilter === 'date' && renderFilterPopover('dateRange', t.date, (
+          {openFilter === 'date' && renderFilterPopover('dateRange', t('date'), (
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t.sort}</label>
+              <label className="text-sm font-medium">{t('sort')}</label>
               <select 
                 className="w-full p-1 border rounded text-sm"
                 value={`${localFilters.sort.by}-${localFilters.sort.order}`}
@@ -132,66 +132,66 @@ function TransactionFilters({ filters, onFilterChange, accounts, categories, t, 
                   setLocalFilters(f => ({ ...f, sort: { by, order } }));
                 }}
               >
-                <option value="date-desc">{t.newestToOldest}</option><option value="date-asc">{t.oldestToNewest}</option>
+                <option value="date-desc">{t('newestToOldest')}</option><option value="date-asc">{t('oldestToNewest')}</option>
               </select>
-              <label className="text-sm font-medium pt-2 block">{t.filterByDateRange}</label>
-              <DatePicker placeholderText={t.datePickerFromPlaceholder} selectedDate={localFilters.dateRange.start} onChange={date => setLocalFilters(f => ({...f, dateRange: {...f.dateRange, start: date.toISOString().split('T')[0]}}))} language={language} />
-              <DatePicker placeholderText={t.datePickerToPlaceholder} selectedDate={localFilters.dateRange.end} onChange={date => setLocalFilters(f => ({...f, dateRange: {...f.dateRange, end: date.toISOString().split('T')[0]}}))} language={language} />
+              <label className="text-sm font-medium pt-2 block">{t('filterByDateRange')}</label>
+              <DatePicker placeholderText={ t('datePickerFromPlaceholder')} selectedDate={localFilters.dateRange.start} onChange={date => setLocalFilters(f => ({...f, dateRange: {...f.dateRange, start: date.toISOString().split('T')[0]}}))} language={language} />
+              <DatePicker placeholderText={t('datePickerToPlaceholder')} selectedDate={localFilters.dateRange.end} onChange={date => setLocalFilters(f => ({...f, dateRange: {...f.dateRange, end: date.toISOString().split('T')[0]}}))} language={language} />
             </div>
           ))}
         </th>
         <th className={thClassName}>
           <div className="flex items-center cursor-pointer" onClick={() => handleToggle('description')}>
-            {t.description}
+            { t('description')}
             {isFilterActive('description') ? <FilterIconFilled /> : <FilterIcon />}
           </div>
-            {openFilter === 'description' && renderFilterPopover('description', t.description,
-              <input type="text" value={localFilters.description} onChange={e => setLocalFilters(f => ({...f, description: e.target.value}))} className="w-full p-1 border rounded text-sm" placeholder={t.search} />
+            {openFilter === 'description' && renderFilterPopover('description',  t('description'),
+              <input type="text" value={localFilters.description} onChange={e => setLocalFilters(f => ({...f, description: e.target.value}))} className="w-full p-1 border rounded text-sm" placeholder={ t('search')} />
             )}
         </th>
         <th className={thClassName}>
             <div className="flex items-center cursor-pointer" onClick={() => handleToggle('category')}>
-              {t.category}
+              {t('category')}
               {isFilterActive('categoryIds') ? <FilterIconFilled /> : <FilterIcon />}
             </div>
-            {openFilter === 'category' && renderFilterPopover('categoryIds', t.category, 
-                <MultiSelectFilter options={categories} selectedIds={localFilters.categoryIds} onApply={(ids) => setLocalFilters(f => ({...f, categoryIds: ids}))} t={t}/>
+            {openFilter === 'category' && renderFilterPopover('categoryIds', t('category'), 
+                <MultiSelectFilter options={categories} selectedIds={localFilters.categoryIds} onApply={(ids) => setLocalFilters(f => ({...f, categoryIds: ids}))}/>
             )}
         </th>
         <th className={thClassName}>
             <div className="flex items-center cursor-pointer" onClick={() => handleToggle('account')}>
-              {t.account}
+              {t('account')}
               {isFilterActive('accountIds') ? <FilterIconFilled /> : <FilterIcon />}
             </div>
-            {openFilter === 'account' && renderFilterPopover('accountIds', t.account, 
-                <MultiSelectFilter options={accounts} selectedIds={localFilters.accountIds} onApply={(ids) => setLocalFilters(f => ({...f, accountIds: ids}))} t={t}/>
+            {openFilter === 'account' && renderFilterPopover('accountIds', t('account'), 
+                <MultiSelectFilter options={accounts} selectedIds={localFilters.accountIds} onApply={(ids) => setLocalFilters(f => ({...f, accountIds: ids}))}/>
             )}
         </th>
         <th className={thClassName}>
             <div className="flex items-center cursor-pointer" onClick={() => handleToggle('recurrent')}>
-              {t.recurrent}
+              {t('recurrent')}
               {isFilterActive('recurrent') ? <FilterIconFilled /> : <FilterIcon />}
             </div>
-            {openFilter === 'recurrent' && renderFilterPopover('recurrent', t.recurrent, (
+            {openFilter === 'recurrent' && renderFilterPopover('recurrent', t('recurrent'), (
                 <div className="space-y-1">
-                    <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={localFilters.recurrent === true} onChange={() => setLocalFilters(f => ({...f, recurrent: f.recurrent === true ? null : true}))} /> <span>{t.yes}</span></label>
-                    <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={localFilters.recurrent === false} onChange={() => setLocalFilters(f => ({...f, recurrent: f.recurrent === false ? null : false}))} /> <span>{t.no}</span></label>
+                    <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={localFilters.recurrent === true} onChange={() => setLocalFilters(f => ({...f, recurrent: f.recurrent === true ? null : true}))} /> <span>{t('yes')}</span></label>
+                    <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={localFilters.recurrent === false} onChange={() => setLocalFilters(f => ({...f, recurrent: f.recurrent === false ? null : false}))} /> <span>{t('no')}</span></label>
                 </div>
             ))}
         </th>
         <th className={`${thClassName}`}>
             <div className="flex items-center justify-end cursor-pointer" onClick={() => handleToggle('amount')}>
-              {t.amount}
+              {t('amount')}
               {isFilterActive('amountRange') ? <FilterIconFilled /> : <FilterIcon />}
             </div>
-            {openFilter === 'amount' && renderFilterPopover('amountRange', t.amount, (
+            {openFilter === 'amount' && renderFilterPopover('amountRange', t('amount'), (
                 <div className="space-y-2">
-                    <input type="number" value={localFilters.amountRange.min} onChange={e => setLocalFilters(f => ({...f, amountRange: {...f.amountRange, min: e.target.value}}))} placeholder={t.minAmount} className="w-full p-1 border rounded text-sm" />
-                    <input type="number" value={localFilters.amountRange.max} onChange={e => setLocalFilters(f => ({...f, amountRange: {...f.amountRange, max: e.target.value}}))} placeholder={t.maxAmount} className="w-full p-1 border rounded text-sm" />
+                    <input type="number" value={localFilters.amountRange.min} onChange={e => setLocalFilters(f => ({...f, amountRange: {...f.amountRange, min: e.target.value}}))} placeholder={t('minAmount')} className="w-full p-1 border rounded text-sm" />
+                    <input type="number" value={localFilters.amountRange.max} onChange={e => setLocalFilters(f => ({...f, amountRange: {...f.amountRange, max: e.target.value}}))} placeholder={t('maxAmount')} className="w-full p-1 border rounded text-sm" />
                 </div>
             ))}
         </th>
-        <th className={`${thClassName} text-right`}>{t.actions}</th>
+        <th className={`${thClassName} text-right`}>{t('actions')}</th>
       </tr>
     </thead>
   );

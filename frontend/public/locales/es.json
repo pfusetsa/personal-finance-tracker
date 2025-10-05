@@ -153,5 +153,10 @@
   "recurrenceSetError": "Error al establecer la regla de recurrencia.",
   "optional": "Opcional",
   "never": "Nunca",
-  "logout": "Salir / Cambiar Perfil"
+  "logout": "Salir / Cambiar Perfil",
+  "oneMonth": "1 Mes",
+  "sixMonths": "6 Meses",
+  "oneYear": "1 Año",
+  "allTime": "Total",
+  "custom": "Personalizado"
 }

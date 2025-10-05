@@ -1,7 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import { useAppContext } from '../context/AppContext';
 import DatePicker from './DatePicker';
 
-function RecurrenceModal({ transaction, onSave, onCancel, t, language }) {
+function RecurrenceModal({ transaction, onSave, onCancel }) {
+
+  const { language, t } = useAppContext();
+  
   const [recurrenceNum, setRecurrenceNum] = useState(1);
   const [recurrenceUnit, setRecurrenceUnit] = useState('months');
   const [endDate, setEndDate] = useState(''); // Default to empty for "never"
@@ -24,12 +28,12 @@ function RecurrenceModal({ transaction, onSave, onCancel, t, language }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
-        {t.recurrenceRuleFor} <strong className="font-semibold">{transaction.description}</strong>
+        { t('recurrenceRuleFor')} <strong className="font-semibold">{transaction.description}</strong>
       </p>
       
       {/* Frequency Selector */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">{t.frequency}</label>
+        <label className="block text-sm font-medium text-gray-700">{ t('frequency')}</label>
         <div className="flex items-center space-x-2 mt-1">
           <select
             value={recurrenceNum}
@@ -43,32 +47,32 @@ function RecurrenceModal({ transaction, onSave, onCancel, t, language }) {
             onChange={(e) => setRecurrenceUnit(e.target.value)}
             className="w-2/3 p-2 border border-gray-300 rounded-md shadow-sm"
           >
-            <option value="days">{t.days}</option>
-            <option value="weeks">{t.weeks}</option>
-            <option value="months">{t.months}</option>
-            <option value="years">{t.years}</option>
+            <option value="days">{ t('days')}</option>
+            <option value="weeks">{ t('weeks')}</option>
+            <option value="months">{ t('months')}</option>
+            <option value="years">{ t('years')}</option>
           </select>
         </div>
       </div>
 
       {/* End Date Picker */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">{t.endDate} ({t.optional.toLowerCase()})</label>
+        <label className="block text-sm font-medium text-gray-700">{ t('endDate')} ({ t('optional').toLowerCase()})</label>
         <DatePicker
           selectedDate={endDate}
           onChange={(date) => setEndDate(date.toISOString().split('T')[0])}
           language={language}
-          placeholder={t.never}
+          placeholder={ t('never')}
         />
       </div>
 
       {/* Action Buttons */}
       <div className="flex justify-end space-x-2 pt-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-          {t.cancel}
+          { t('cancel')}
         </button>
         <button type="button" onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-          {t.setRecurrence}
+          { t('setRecurrence')}
         </button>
       </div>
     </div>

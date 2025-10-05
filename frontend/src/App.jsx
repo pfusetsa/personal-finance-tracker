@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useAppContext } from './context/AppContext';
 import { categoryColorPalette } from './utils.js';
-import { apiFetch, setActiveUser } from './apiClient';
+import { apiFetch } from './apiClient';
 
 import AccountManager from './components/AccountManager.jsx';
 import AddTransactionForm from './components/AddTransactionForm';
@@ -38,24 +39,17 @@ const PAGE_SIZE = 10;
 const initialCardVisibility = { incomeVsExpenses: true, category: true, recurrent: true };
 
 function App() {
-  const [activeUser, _setActiveUser] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem('activeUser');
-      return savedUser ? JSON.parse(savedUser) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-  const [balanceReportData, setBalanceReportData] = useState(null);
+  // --- Global State & Functions from Context ---
+  const { 
+    isLoading, activeUser, t, handleSetUser,
+    accounts, categories, balanceReportData, balanceEvolutionData,
+    triggerRefresh
+  } = useAppContext();
+
+  // --- Local State (for UI interaction and non-global data) ---
   const [transactionsData, setTransactionsData] = useState(null);
-  const [accounts, setAccounts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [categoryColorMap, setCategoryColorMap] = useState({});
   const [notification, setNotification] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [language, setLanguage] = useState(() => localStorage.getItem('language') || 'en');
-  const [translations, setTranslations] = useState(null);
   const [activeForm, setActiveForm] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [deletingTransaction, setDeletingTransaction] = useState(null);
@@ -65,13 +59,8 @@ function App() {
   const [settingsView, setSettingsView] = useState('categories');
   const [chartPeriod, setChartPeriod] = useState('all');
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
-  const [incomeExpenseData, setIncomeExpenseData] = useState(null);
-  const [categorySummaryData, setCategorySummaryData] = useState(null);
-  const [recurrentData, setRecurrentData] = useState(null);
-  const [balanceEvolutionData, setBalanceEvolutionData] = useState(null);
   const [categoryChartType, setCategoryChartType] = useState('expense');
   const [isFiltering, setIsFiltering] = useState(false);
-  const [isFabOpen, setIsFabOpen] = useState(false);
   const [cardVisibility, setCardVisibility] = useState(() => { try { const saved = localStorage.getItem('cardVisibility'); return saved ? JSON.parse(saved) : initialCardVisibility; } catch (e) { return initialCardVisibility; } });
   const [filters, setFilters] = useState({
     accountIds: [],
@@ -84,41 +73,15 @@ function App() {
   });
   const [pendingTransaction, setPendingTransaction] = useState(null);
   const [recurrenceModalIsOpen, setRecurrenceModalIsOpen] = useState(false);
-
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const [incomeExpenseData, setIncomeExpenseData] = useState(null);
+  const [categorySummaryData, setCategorySummaryData] = useState(null);
+  const [recurrentData, setRecurrentData] = useState(null);
+  
+  // --- Local useEffects ---
   useEffect(() => {
-    fetch(`/locales/${language}.json`).then(res => res.json()).then(data => setTranslations(data));
-    localStorage.setItem('language', language);
-  }, [language]);
+    if (!activeUser || isLoading) return;
 
-  useEffect(() => {
-    if (activeUser) {
-      setActiveUser(activeUser.id); // This is the function from apiClient.js
-    }
-  }, [activeUser]);
-
-  const handleSetUser = (user) => {
-    localStorage.setItem('activeUser', JSON.stringify(user));
-    _setActiveUser(user);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('activeUser');
-    _setActiveUser(null);
-    // Optionally reset other states if needed
-    setTransactionsData(null);
-    setBalanceReportData(null);
-  };
-
-  useEffect(() => {
-    if (!activeUser) return;
-
-    // Fetch non-date-filtered data
-    const balancePromise = apiFetch('/reports/balance/');
-    const evolutionPromise = apiFetch('/reports/balance-evolution/');
-    const accountsPromise = apiFetch('/accounts/');
-    const categoriesPromise = apiFetch('/categories/');
-
-    // Calculate dates
     let startDate;
     let endDate = new Date().toISOString().split('T')[0];
 
@@ -128,37 +91,20 @@ function App() {
     else if (chartPeriod === 'all') { startDate = '1970-01-01'; } 
     else if (chartPeriod === 'custom' && customDates.start && customDates.end) { startDate = customDates.start; endDate = customDates.end; } 
     else { return; }
-
-    // Fetch date-filtered data
-    setCategorySummaryData(null); setIncomeExpenseData(null); setRecurrentData(null);
-    const categorySummaryPromise = apiFetch(`/reports/category-summary/?start_date=${startDate}&end_date=${endDate}&transaction_type=${categoryChartType}`);
-    const incomeExpensePromise = apiFetch(`/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`);
-    const recurrentPromise = apiFetch(`/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`);
     
-    // Resolve all promises
-    Promise.all([balancePromise, evolutionPromise, accountsPromise, categoriesPromise, categorySummaryPromise, incomeExpensePromise, recurrentPromise])
-      .then(([balanceData, evolutionData, accountsData, categoriesData, categoryData, incomeData, recurrentData]) => {
-        setBalanceReportData(balanceData);
-        setBalanceEvolutionData(evolutionData);
-        setAccounts(accountsData);
-        setCategories(categoriesData);
-        const colorMap = {};
-        categoriesData.forEach((cat, index) => { colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length]; });
-        setCategoryColorMap(colorMap);
-        setCategorySummaryData(categoryData);
-        setIncomeExpenseData(incomeData);
-        setRecurrentData(recurrentData);
-      }).catch(err => console.error("Error fetching dashboard data:", err));
+    // Fetch chart-specific data that depends on the date filters
+    setCategorySummaryData(null); setIncomeExpenseData(null); setRecurrentData(null);
+    apiFetch(`/reports/category-summary/?start_date=${startDate}&end_date=${endDate}&transaction_type=${categoryChartType}`).then(setCategorySummaryData);
+    apiFetch(`/reports/monthly-income-expense-summary/?start_date=${startDate}&end_date=${endDate}`).then(setIncomeExpenseData);
+    apiFetch(`/reports/recurrent-summary/?start_date=${startDate}&end_date=${endDate}`).then(setRecurrentData);
 
-  }, [activeUser, refreshTrigger, chartPeriod, customDates, categoryChartType]);
+  }, [activeUser, isLoading, triggerRefresh, chartPeriod, customDates, categoryChartType]);
+
   
-  useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
-  useEffect(() => { const handleKeyDown = (event) => { if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) { return; } if (event.key === 'Escape') { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setShowChat(false); setDeletingTransaction(null); } if (event.key.toLowerCase() === 'n') { event.preventDefault(); setActiveForm('transaction'); } if (event.key.toLowerCase() === 't') { event.preventDefault(); setActiveForm('transfer'); } if (event.key.toLowerCase() === 'a') { event.preventDefault(); setShowChat(true); } }; window.addEventListener('keydown', handleKeyDown); return () => { window.removeEventListener('keydown', handleKeyDown); }; }, []);
-
-  // Effect for the main transaction list
   useEffect(() => {
-    if (!activeUser) return;
+    if (!activeUser || isLoading) return;
     setIsFiltering(true);
+
     const startTime = Date.now();
     const MIN_DISPLAY_TIME = 300; 
 
@@ -192,58 +138,44 @@ function App() {
         }, delay);
       })
       .catch(() => setIsFiltering(false));
-  }, [activeUser, currentPage, refreshTrigger, filters]);
+  }, [activeUser, isLoading, currentPage, triggerRefresh, filters]);
 
-  const handleFilterChange = useCallback((newFilterValues) => {
-    setFilters(prevFilters => ({
-      ...prevFilters,
-      ...newFilterValues,
-    }));
-    setCurrentPage(1); // Reset to page 1 whenever filters change
-  }, []);
+  useEffect(() => { localStorage.setItem('cardVisibility', JSON.stringify(cardVisibility)); }, [cardVisibility]);
+  useEffect(() => { const handleKeyDown = (event) => { if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) { return; } if (event.key === 'Escape') { setActiveForm(null); setEditingTransaction(null); setShowSettings(false); setShowChat(false); setDeletingTransaction(null); } if (event.key.toLowerCase() === 'n') { event.preventDefault(); setActiveForm('transaction'); } if (event.key.toLowerCase() === 't') { event.preventDefault(); setActiveForm('transfer'); } if (event.key.toLowerCase() === 'a') { event.preventDefault(); setShowChat(true); } }; window.addEventListener('keydown', handleKeyDown); return () => { window.removeEventListener('keydown', handleKeyDown); }; }, []);
 
-  if (!translations) { return <div className="p-8 text-center">Loading TrakFin...</div>; }
-
-  const t = translations;
-
-  const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
+// --- Local Handlers ---
+  const handleFilterChange = useCallback((newFilterValues) => { setFilters(prev => ({ ...prev, ...newFilterValues })); setCurrentPage(1); }, []);
   const showNotification = (message, type = 'success') => { setNotification({ message, type }); setTimeout(() => setNotification(null), 3000); };
-  const handleDataUpdate = (message, type = 'success') => { setRefreshTrigger(c => c + 1); showNotification(message, type); };
+  const handleDataUpdate = (message, type = 'success') => { triggerRefresh(); showNotification(message, type); };
   const handleTransactionSuccess = (message) => { handleDataUpdate(message); setActiveForm(null); setEditingTransaction(null); };
   const openSettings = (view) => { setSettingsView(view); setShowSettings(true); };
-  
+  const toggleCardVisibility = (cardName) => { setCardVisibility(prev => ({ ...prev, [cardName]: !prev[cardName] })); };
   const confirmDeleteTransaction = () => {
     if (!deletingTransaction) return;
     apiFetch(`/transactions/${deletingTransaction.id}`, { method: 'DELETE' })
       .then(() => {
-        const message = deletingTransaction.transfer_id ? t.transferDeletedSuccess : t.transactionDeletedSuccess;
+        const message = deletingTransaction.transfer_id ?  t('transferDeletedSuccess') :  t('transactionDeletedSuccess');
         handleDataUpdate(message);
         setDeletingTransaction(null);
       });
   };
-  const fabActions = [{ label: t.addTransaction, icon: 'transaction', onClick: () => setActiveForm('transaction'), shortcut: 'N' }, { label: t.addTransfer, icon: 'transfer', onClick: () => setActiveForm('transfer'), shortcut: 'T' }, { label: t.askAI, icon: 'ai', onClick: () => setShowChat(true), shortcut: 'A' }];
-  const categoryChartFilterControl = ( <select value={categoryChartType} onChange={e => setCategoryChartType(e.target.value)} className="p-1 border rounded-md text-sm bg-gray-50"><option value="expense">{t.expenses}</option><option value="income">{t.income}</option><option value="both">{t.both}</option></select> );
-  
-  
   const handleAddTransfer = (formData) => {
     const fromAccount = accounts.find(acc => acc.id === parseInt(formData.from_account_id));
     const toAccount = accounts.find(acc => acc.id === parseInt(formData.to_account_id));
     if (!fromAccount || !toAccount) { showNotification('Could not find accounts.', 'error'); return; }
-    const description = t.transferDescription.replace('{fromName}', fromAccount.name).replace('{toName}', toAccount.name);
+    const description =  t('transferDescription').replace('{fromName}', fromAccount.name).replace('{toName}', toAccount.name);
     apiFetch(`/transfers/`, { method: 'POST', body: JSON.stringify({ ...formData, description }) })
-      .then(() => handleTransactionSuccess(t.transferAddedSuccess))
-      .catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message || t.transferAddError, 'error'); });
+      .then(() => handleTransactionSuccess( t('transferAddedSuccess')))
+      .catch(error => { console.error('Failed to add transfer:', error); showNotification(error.message ||  t('transferAddError'), 'error'); });
   };
   const handleUpdateTransfer = (transferId, formData) => {
     apiFetch(`/transfers/${transferId}`, { method: 'PUT', body: JSON.stringify(formData) })
       .then(() => {
-        handleDataUpdate(t.transferUpdatedSuccess);
+        handleDataUpdate( t('transferUpdatedSuccess'));
         setEditingTransferId(null);
       })
-      .catch(error => { console.error('Failed to update transfer:', error); showNotification(t.transferUpdateError, 'error'); });
+      .catch(error => { console.error('Failed to update transfer:', error); showNotification( t('transferUpdateError'), 'error'); });
   };
-  // Add these three new functions to App.jsx
-
   const handleTransactionSubmit = (formData, originalTransaction = null) => {
     // Check if this is a new recurrent transaction or one being toggled to recurrent
     const isNewRecurrence = formData.is_recurrent && !originalTransaction?.is_recurrent;
@@ -261,16 +193,15 @@ function App() {
         : apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify({ ...formData, currency: 'EUR' }) });
       
       apiCall.then(() => {
-        const message = originalTransaction ? t.transactionUpdatedSuccess : t.transactionAddedSuccess;
+        const message = originalTransaction ?  t('transactionUpdatedSuccess') :  t('transactionAddedSuccess');
         handleTransactionSuccess(message);
       }).catch(error => {
-        const message = originalTransaction ? t.transactionUpdateError : t.transactionAddError;
+        const message = originalTransaction ?  t('transactionUpdateError') :  t('transactionAddError');
         console.error('Failed to save transaction:', error);
         showNotification(message, 'error');
       });
     }
   };
-
   const handleFinalizeRecurrence = (recurrenceData) => {
     const { original, ...transactionData } = pendingTransaction;
     const finalTransactionData = {
@@ -284,17 +215,16 @@ function App() {
       : apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify(finalTransactionData) });
     
     apiCall.then((response) => {
-      const message = original ? t.transactionUpdatedSuccess : t.transactionAddedSuccess;
+      const message = original ?  t('transactionUpdatedSuccess') :  t('transactionAddedSuccess');
       handleDataUpdate(message);
       setRecurrenceModalIsOpen(false);
       setPendingTransaction(null);
     }).catch(error => {
       console.error('Failed to save recurrent transaction:', error);
-      const message = original ? t.transactionUpdateError : t.transactionAddError;
+      const message = original ?  t('transactionUpdateError') :  t('transactionAddError');
       showNotification(message, 'error');
     });
   };
-
   const handleCancelRecurrence = () => {
     setRecurrenceModalIsOpen(false);
     if (pendingTransaction.original) {
@@ -304,132 +234,93 @@ function App() {
     }
   };
 
-  if (!activeUser) {
-    return <UserSelector onUserSelected={handleSetUser} t={t} language={language} setLanguage={setLanguage} />;
-  }
+  // --- Render Logic ---
+if (isLoading || !t('financeTracker')) {
+  return <div className="p-8 text-center">Loading TrakFin...</div>;
+}
 
-  return (
-    <div className="container mx-auto p-4 md:p-8">
-      <Notification message={notification?.message} type={notification?.type} />
-      <header>
-        <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-          <div className="flex justify-between items-center"><div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t.financeTracker}</h1></div><div className="flex items-center space-x-4"><LanguageSelector language={language} setLanguage={setLanguage} /><SettingsMenu onManageCategories={() => openSettings('categories')} onManageAccounts={() => openSettings('accounts')} onSetTransferCategory={() => openSettings('transferCategory')} onLogout={handleLogout} t={t} /></div></div>
+if (!activeUser) {
+  return <UserSelector />; // No props needed!
+}
+
+const fabActions = [{ label: t('addTransaction'), icon: 'transaction', onClick: () => setActiveForm('transaction'), shortcut: 'N' }, { label: t('addTransfer'), icon: 'transfer', onClick: () => setActiveForm('transfer'), shortcut: 'T' }, { label: t('askAI'), icon: 'ai', onClick: () => setShowChat(true), shortcut: 'A' }];
+const categoryChartFilterControl = ( <select value={categoryChartType} onChange={e => setCategoryChartType(e.target.value)} className="p-1 border rounded-md text-sm bg-gray-50"><option value="expense">{t('expenses')}</option><option value="income">{t('income')}</option><option value="both">{t('both')}</option></select> );
+
+return (
+  <div className="container mx-auto p-4 md:p-8">
+    <Notification message={notification?.message} type={notification?.type} />
+    <header>
+      <div className="bg-white shadow-md rounded-lg p-6 mb-8">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t('financeTracker')}</h1></div>
+          <div className="flex items-center space-x-4">
+            <LanguageSelector />
+            <SettingsMenu 
+              onManageCategories={() => openSettings('categories')} 
+              onManageAccounts={() => openSettings('accounts')} 
+              onSetTransferCategory={() => openSettings('transferCategory')} 
+            />
+          </div>
         </div>
-      </header>
-      
-      {activeForm === 'transfer' && (<Modal title={t.addTransfer} onClose={() => setActiveForm(null)}><AddTransferForm accounts={accounts} onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} t={t} language={language} /></Modal>)}
-      
-      {editingTransferId && (
-        <Modal title={t.editTransfer} onClose={() => setEditingTransferId(null)}>
-          <EditTransferForm
-            transferId={editingTransferId}
-            accounts={accounts}
-            onFormSubmit={handleUpdateTransfer}
-            onCancel={() => setEditingTransferId(null)}
-            t={t}
-            language={language}
-          />
-        </Modal>
-      )}
-
-      {activeForm === 'transaction' && (
-        <Modal title={t.addTransaction} onClose={() => { setActiveForm(null); setPendingTransaction(null); /* Add this */ }}>
-          <AddTransactionForm 
-            accounts={accounts} 
-            categories={categories} 
-            onFormSubmit={handleTransactionSubmit} 
-            onCancel={() => { setActiveForm(null); setPendingTransaction(null); /* And this */ }}
-            initialData={pendingTransaction && !pendingTransaction.original ? pendingTransaction : null}
-            t={t} 
-            language={language} 
-          />
-        </Modal>
-      )}
-
-      {editingTransaction && (
-        <Modal title={t.editTransaction} onClose={() => setEditingTransaction(null)}>
-          <EditTransactionForm 
-            transaction={editingTransaction} 
-            accounts={accounts} 
-            categories={categories} 
-            onFormSubmit={(transactionId, formData) => handleTransactionSubmit(formData, editingTransaction)} 
-            onCancel={() => setEditingTransaction(null)} 
-            t={t} 
-            language={language} 
-          />
-        </Modal>
-      )}
-
-      {recurrenceModalIsOpen && (
-        <Modal title={t.setRecurrence} onClose={handleCancelRecurrence}>
-          <RecurrenceModal
-            transaction={pendingTransaction}
-            onSave={handleFinalizeRecurrence}
-            onCancel={handleCancelRecurrence}
-            t={t}
-            language={language}
-          />
-        </Modal>
-      )}
-
-      {deletingTransaction && (<ConfirmationModal message={`${t.deleteConfirmMessage} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} confirmText={t.delete} cancelText={t.cancel} />)}
-      {showChat && <Chat onCancel={() => setShowChat(false)} t={t} />}
-      {showSettings && (
-        <Modal 
-          title={
-            settingsView === 'categories' ? t.manageCategories :
-            settingsView === 'accounts' ? t.manageAccounts :
-            t.manageTransferCategory
-          } 
-          onClose={() => setShowSettings(false)}
-        >
-          {settingsView === 'categories' && <CategoryManager onUpdate={handleDataUpdate} t={t} />}
-          {settingsView === 'accounts' && <AccountManager onUpdate={handleDataUpdate} t={t} />}
-          {settingsView === 'transferCategory' && <TransferCategorySelector categories={categories} onUpdate={handleDataUpdate} t={t} onComplete={() => setShowSettings(false)} />}
-        </Modal>
-      )}
-      
-      <main>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8"><div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData} t={t} /> : <BalanceReportSkeleton />}</div><div className="lg:col-span-2"><ChartCard title={t.balanceEvolution} isOpen={true} onToggle={null}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <div className="h-64 flex items-center justify-center"><p>Loading chart...</p></div>}</ChartCard></div></div>
-        <ChartFilters period={chartPeriod} setPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} t={t} language={language} />
-        <div className="space-y-8 mt-8">
-          <ChartCard title={t.incomeVsExpenses} isOpen={cardVisibility.incomeVsExpenses} onToggle={() => toggleCardVisibility('incomeVsExpenses')}>{incomeExpenseData ? <IncomeExpenseChart data={incomeExpenseData} t={t} /> : <ChartSkeleton />}</ChartCard>
-          <ChartCard title={t.summaryByCategory} isOpen={cardVisibility.category} onToggle={() => toggleCardVisibility('category')} headerControls={categoryChartFilterControl}>{categorySummaryData ? <CategoryChart data={categorySummaryData} t={t} /> : <ChartSkeleton />}</ChartCard>
-          <ChartCard title={t.recurrentTransactions} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>{recurrentData ? <RecurrentChart data={recurrentData} t={t} /> : <ChartSkeleton />}</ChartCard>
-        </div>
-        <div className="mt-8">
-          {transactionsData ? (
-            <>
-              <TransactionList 
-                transactions={transactionsData.transactions} 
-                onEdit={(tx) => tx.transfer_id ? setEditingTransferId(tx.transfer_id) : setEditingTransaction(tx)} 
-                onDelete={setDeletingTransaction} 
-                categoryColorMap={categoryColorMap}
-                t={t}
-                filters={filters}
-                onFilterChange={handleFilterChange}
-                accounts={accounts}
-                categories={categories}
-                language={language}
-                isFiltering={isFiltering}
-              />
-              <Pagination 
-                currentPage={currentPage} 
-                totalItems={transactionsData.total_count} 
-                itemsPerPage={PAGE_SIZE} 
-                onPageChange={setCurrentPage} 
-                t={t} 
-              />
-            </>
-          ) : ( <TransactionListSkeleton /> )}
-        </div>
-      </main>
-
-      <div className="fixed bottom-8 right-8 z-40">
-        <FloatingActionButton actions={fabActions} onToggle={setIsFabOpen} />
       </div>
+    </header>
+    
+    {activeForm === 'transfer' && ( <Modal title={t('addTransfer')} onClose={() => setActiveForm(null)}><AddTransferForm onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} /></Modal> )}
+    {editingTransferId && ( <Modal title={t('editTransfer')} onClose={() => setEditingTransferId(null)}><EditTransferForm transferId={editingTransferId} onFormSubmit={handleUpdateTransfer} onCancel={() => setEditingTransferId(null)}/></Modal> )}
+    {activeForm === 'transaction' && ( <Modal title={t('addTransaction')} onClose={() => { setActiveForm(null); setPendingTransaction(null); }}><AddTransactionForm onFormSubmit={handleTransactionSubmit} onCancel={() => { setActiveForm(null); setPendingTransaction(null); }} initialData={pendingTransaction && !pendingTransaction.original ? pendingTransaction : null}/></Modal> )}
+    {editingTransaction && ( <Modal title={t('editTransaction')} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} onFormSubmit={(transactionId, formData) => handleTransactionSubmit(formData, editingTransaction)} onCancel={() => setEditingTransaction(null)} /></Modal> )}
+    {recurrenceModalIsOpen && ( <Modal title={t('setRecurrence')} onClose={handleCancelRecurrence}><RecurrenceModal transaction={pendingTransaction} onSave={handleFinalizeRecurrence} onCancel={handleCancelRecurrence} /></Modal> )}
+    {deletingTransaction && (<ConfirmationModal message={`${t('deleteConfirmMessage')} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} />)}
+    {showChat && <Chat onCancel={() => setShowChat(false)} />}
+    {showSettings && (
+      <Modal 
+        title={ settingsView === 'categories' ? t('manageCategories') : settingsView === 'accounts' ? t('manageAccounts') : t('manageTransferCategory') } 
+        onClose={() => setShowSettings(false)}
+      >
+        {settingsView === 'categories' && <CategoryManager onUpdate={handleDataUpdate}/>}
+        {settingsView === 'accounts' && <AccountManager onUpdate={handleDataUpdate}/>}
+        {settingsView === 'transferCategory' && <TransferCategorySelector onUpdate={handleDataUpdate} onComplete={() => setShowSettings(false)} />}
+      </Modal>
+    )}
+    
+    <main>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData}/> : <BalanceReportSkeleton />}</div>
+        <div className="lg:col-span-2"><ChartCard title={t('balanceEvolution')} isOpen={true}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <ChartSkeleton />}</ChartCard></div>
+      </div>
+      <ChartFilters period={chartPeriod} setChartPeriod={setChartPeriod} customDates={customDates} setCustomDates={setCustomDates} />
+      <div className="space-y-8 mt-8">
+        <ChartCard title={t('incomeVsExpenses')} isOpen={cardVisibility.incomeVsExpenses} onToggle={() => toggleCardVisibility('incomeVsExpenses')}>{incomeExpenseData ? <IncomeExpenseChart data={incomeExpenseData} /> : <ChartSkeleton />}</ChartCard>
+        <ChartCard title={t('summaryByCategory')} isOpen={cardVisibility.category} onToggle={() => toggleCardVisibility('category')} headerControls={categoryChartFilterControl}>{categorySummaryData ? <CategoryChart data={categorySummaryData} /> : <ChartSkeleton />}</ChartCard>
+        <ChartCard title={t('recurrentTransactions')} isOpen={cardVisibility.recurrent} onToggle={() => toggleCardVisibility('recurrent')}>{recurrentData ? <RecurrentChart data={recurrentData} /> : <ChartSkeleton />}</ChartCard>
+      </div>
+      <div className="mt-8">
+        {transactionsData ? (
+          <>
+            <TransactionList 
+              transactions={transactionsData.transactions} 
+              onEdit={(tx) => tx.transfer_id ? setEditingTransferId(tx.transfer_id) : setEditingTransaction(tx)} 
+              onDelete={setDeletingTransaction} 
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              isFiltering={isFiltering}
+            />
+            <Pagination 
+              currentPage={currentPage} 
+              totalItems={transactionsData.total_count} 
+              itemsPerPage={PAGE_SIZE} 
+              onPageChange={setCurrentPage} 
+            />
+          </>
+        ) : ( <TransactionListSkeleton /> )}
+      </div>
+    </main>
+
+    <div className="fixed bottom-8 right-8 z-40">
+      <FloatingActionButton actions={fabActions} onToggle={setIsFabOpen} />
     </div>
-  );
+  </div>
+);
 }
 
 export default App;

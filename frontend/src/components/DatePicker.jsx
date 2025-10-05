@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAppContext } from '../context/AppContext';
 import ReactDatePicker, { registerLocale } from 'react-datepicker';
 import { enUS, es } from 'date-fns/locale';
 
@@ -8,7 +9,10 @@ import "react-datepicker/dist/react-datepicker.css";
 registerLocale('en', enUS);
 registerLocale('es', es);
 
-function DatePicker({ selectedDate, onChange, language, placeholderText }) {
+function DatePicker({ selectedDate, onChange, placeholderText }) {
+
+  const { language } = useAppContext();
+
   const dateObject = selectedDate ? new Date(selectedDate) : null;
 
   return (

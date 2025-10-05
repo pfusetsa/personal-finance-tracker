@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { useAppContext } from '../context/AppContext';
 
-function LanguageSelector({ language, setLanguage }) {
+function LanguageSelector() {
+  const { language, setLanguage } = useAppContext();
+
   const [isOpen, setIsOpen] = useState(false);
 
   const languages = [

@@ -155,5 +155,10 @@
   "recurrenceSetError": "Failed to set recurrence rule.",
   "optional": "Optional",
   "never": "Never",
-  "logout": "Log Out / Change Profile"
+  "logout": "Log Out / Change Profile",
+  "oneMonth": "1 Month",
+  "sixMonths": "6 Months",
+  "oneYear": "1 Year",
+  "allTime": "All Time",
+  "custom": "Custom"
 }

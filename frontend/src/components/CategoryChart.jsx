@@ -1,8 +1,12 @@
 import React, { useEffect, useRef } from 'react';
+import { useAppContext } from '../context/AppContext';
 import Chart from 'chart.js/auto';
 import { formatMoney } from '../utils.js';
 
-function CategoryChart({ title, data, t }) {
+function CategoryChart({ title, data }) {
+
+  const { t } = useAppContext();
+  
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
 

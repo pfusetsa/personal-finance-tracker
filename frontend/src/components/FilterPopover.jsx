@@ -1,6 +1,10 @@
 import React, { useRef, useEffect } from 'react';
+import { useAppContext } from '../context/AppContext';
 
-function FilterPopover({ title, children, onApply, onClear, onClose, t }) {
+function FilterPopover({ title, children, onApply, onClear, onClose }) {
+
+  const { t } = useAppContext();
+  
   const popoverRef = useRef(null);
 
   // Effect to handle clicking outside of the popover to close it
@@ -23,8 +27,8 @@ function FilterPopover({ title, children, onApply, onClear, onClose, t }) {
         {children}
       </div>
       <div className="flex justify-end space-x-2 p-2 bg-gray-50 rounded-b-md">
-        <button onClick={onClear} className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">{t.clear}</button>
-        <button onClick={onApply} className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">{t.apply}</button>
+        <button onClick={onClear} className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">{ t('clear') }</button>
+        <button onClick={onApply} className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">{ t('apply') }</button>
       </div>
     </div>
   );

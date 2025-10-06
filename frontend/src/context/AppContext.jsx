@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { apiFetch, setActiveUser as setApiClientUser } from '../apiClient';
+import { categoryColorPalette } from '../utils.js';
 
 const AppContext = createContext();
 
@@ -22,53 +23,68 @@ export function AppProvider({ children }) {
   const [balanceReportData, setBalanceReportData] = useState(null);
   const [balanceEvolutionData, setBalanceEvolutionData] = useState(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [categoryColorMap, setCategoryColorMap] = useState({});
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const triggerRefresh = () => setRefreshTrigger(c => c + 1);
 
   useEffect(() => {
-    const loadAppData = async () => {
-      if (activeUser?.id) {
-        setIsLoading(true);
-        setApiClientUser(activeUser.id);
+    setIsLoading(true);
+    fetch(`/locales/${language}.json`)
+      .then(res => res.json())
+      .then(translationsData => {
+        setTranslations(translationsData);
 
-        try {
-          const [
-            accountsData, 
-            categoriesData, 
-            balanceData, 
-            evolutionData,
-            translationsData
-          ] = await Promise.all([
+        if (activeUser?.id) {
+          setApiClientUser(activeUser.id);
+          
+          // Once translations are loaded, fetch all user-specific data
+          Promise.all([
             apiFetch('/accounts/'),
             apiFetch('/categories/'),
             apiFetch('/reports/balance/'),
             apiFetch('/reports/balance-evolution/'),
-            fetch(`/locales/${language}.json`).then(res => res.json())
-          ]);
+          ]).then(([accountsData, categoriesData, balanceData, evolutionData]) => {
+            const t = (key) => translationsData?.[key] || key;
+            const sortedCategories = [...categoriesData].sort((a, b) => {
+              const nameA = t(a.i18n_key) || a.name;
+              const nameB = t(b.i18n_key) || b.name;
+              return nameA.localeCompare(nameB, language);
+            });
 
-          setTranslations(translationsData);
-          setAccounts(accountsData);
-          setCategories(categoriesData);
-          setBalanceReportData(balanceData);
-          setBalanceEvolutionData(evolutionData);
+            const colorMap = {};
+            sortedCategories.forEach((cat, index) => {
+              const displayName = t(cat.i18n_key) || cat.name;
+              colorMap[displayName] = categoryColorPalette[index % categoryColorPalette.length];
+            });
 
-          if (accountsData.length === 0) {
-            setShowOnboarding(true);
-          }
-        } catch (error) {
-          console.error("Failed to load initial data", error);
-        } finally {
+            setAccounts(accountsData);
+            setCategories(sortedCategories);
+            setCategoryColorMap(colorMap);
+            setBalanceReportData(balanceData);
+            setBalanceEvolutionData(evolutionData);
+
+            if (accountsData.length === 0) {
+              setShowOnboarding(true);
+            } else {
+              setShowOnboarding(false);
+            }
+            setIsLoading(false);
+            }).catch(error => {
+            console.error("Failed to load user data:", error);
+            setIsLoading(false);
+          });
+        } else {
+          // No user, so we are done loading.
           setIsLoading(false);
+          setAccounts([]);
+          setCategories([]);
         }
-      } else {
-        setAccounts([]);
-        setCategories([]);
+      })
+      .catch(error => {
+        console.error("Failed to load translations:", error);
         setIsLoading(false);
-      }
-    };
-
-    loadAppData();
+      });
   }, [activeUser, refreshTrigger, language]);
 
   const handleSetUser = (user) => {
@@ -109,7 +125,9 @@ export function AppProvider({ children }) {
       }
       return text;
     },
+    categoryColorMap,
   };
+  
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

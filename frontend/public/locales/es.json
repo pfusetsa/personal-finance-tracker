@@ -183,5 +183,6 @@
   "category_shopping": "Compras",
   "category_entertainment": "Ocio",
   "category_internal_transfer": "Transferencias Internas",
-  "back": "Atrás"
+  "back": "Atrás",
+  "helloUser": "Hola, {name}"
 }

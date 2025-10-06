@@ -395,14 +395,13 @@ def get_balance_report(user_id):
                 END
             ), 0) as balance
         FROM accounts a
-        LEFT JOIN transactions t ON a.id = t.account_id AND t.user_id = a.user_id
+        LEFT JOIN transactions t ON a.id = t.account_id AND t.user_id = a.user_id AND t.status = 'confirmed'
         WHERE a.user_id = ?
         GROUP BY a.name
         ORDER BY a.name;
         """
         df = pd.read_sql_query(query, conn, params=[user_id])
         total_balance = df['balance'].sum() if not df.empty else 0
-        
         return df, total_balance
 
 def get_balance_evolution_report(user_id):
@@ -412,12 +411,11 @@ def get_balance_evolution_report(user_id):
             SELECT date, SUM(amount * CASE currency
                 WHEN 'EUR' THEN {EXCHANGE_RATES['EUR']} WHEN 'USD' THEN {EXCHANGE_RATES['USD']}
                 WHEN 'GBP' THEN {EXCHANGE_RATES['GBP']} ELSE 1.0 END
-            ) as change FROM transactions WHERE user_id = ? GROUP BY date
+            ) as change FROM transactions WHERE user_id = ? AND status = 'confirmed' GROUP BY date
         )
         SELECT date, SUM(change) OVER (ORDER BY date) as cumulative_balance FROM daily_changes ORDER BY date;
         """
         df = pd.read_sql_query(query, conn, params=[user_id])
-        
         return df
 
 def get_category_summary_for_chart(user_id, start_date: str, end_date: str, transaction_type: str = 'expense'):
@@ -426,7 +424,7 @@ def get_category_summary_for_chart(user_id, start_date: str, end_date: str, tran
             SELECT c.name as category, SUM(t.amount) as total
             FROM transactions t INNER JOIN categories c ON t.category_id = c.id
         """
-        where_clauses = ["t.user_id = ?"]
+        where_clauses = ["t.user_id = ?", "t.status = 'confirmed'"]
         params = [user_id]
         
         if start_date: where_clauses.append("t.date >= ?"); params.append(start_date)
@@ -456,7 +454,7 @@ def get_monthly_income_expense_summary(user_id, start_date: str, end_date: str):
                 SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as expenses
             FROM transactions t
         """
-        where_clauses = ["t.user_id = ?"]
+        where_clauses = ["t.user_id = ?", "t.status = 'confirmed'"]
         params = [user_id]
 
         if start_date: where_clauses.append("t.date >= ?"); params.append(start_date)
@@ -483,7 +481,7 @@ def get_recurrent_summary(user_id, start_date: str, end_date: str):
                 SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as expenses
             FROM transactions t INNER JOIN categories c ON t.category_id = c.id
         """
-        where_clauses = ["t.is_recurrent = 1", "t.user_id = ?"]
+        where_clauses = ["t.is_recurrent = 1", "t.user_id = ?", "t.status = 'confirmed'"]
         params = [user_id]
 
         if start_date: where_clauses.append("t.date >= ?"); params.append(start_date)

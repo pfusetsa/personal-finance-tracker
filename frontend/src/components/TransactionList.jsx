@@ -10,15 +10,7 @@ import TransactionFilters from './TransactionFilters';
 import Spinner from './Spinner';
 
 function TransactionList({ transactions, onEdit, onDelete, filters, onFilterChange, isFiltering }) {
-  const { t, accounts, categories, language } = useAppContext();
-
-  const categoryColorMap = useMemo(() => {
-    const colorMap = {};
-    categories.forEach((cat, index) => {
-      colorMap[cat.name] = categoryColorPalette[index % categoryColorPalette.length];
-    });
-    return colorMap;
-  }, [categories]);
+  const { t, accounts, categories, language, categoryColorMap } = useAppContext();
 
   return (
     <div className="bg-white shadow rounded-lg p-6 relative">
@@ -33,7 +25,8 @@ function TransactionList({ transactions, onEdit, onDelete, filters, onFilterChan
           <tbody className="bg-white divide-y divide-gray-200">
             {transactions && transactions.length > 0 ? (
               transactions.map((tx) => {
-                const color = categoryColorMap[tx.category] || { bg: 'bg-gray-100', text: 'text-gray-800' };
+                const displayName = t(tx.category.i18n_key) || tx.category.name;
+                const color = categoryColorMap[displayName] || { bg: 'bg-gray-100', text: 'text-gray-800' };
                 return (
                   <tr key={tx.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.date}</td>
@@ -45,7 +38,7 @@ function TransactionList({ transactions, onEdit, onDelete, filters, onFilterChan
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color.bg} ${color.text}`}>
-                        {t(tx.category.i18n_key) || tx.category.name}
+                        {displayName}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.account}</td>

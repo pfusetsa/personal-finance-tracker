@@ -11,6 +11,7 @@ function CategoryManager({ onUpdate }) {
   
   const { categories, t, triggerRefresh } = useAppContext();
 
+
   const [transferCategoryId, setTransferCategoryId] = useState(null);
   const [perTxManageTarget, setPerTxManageTarget] = useState(null);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -151,7 +152,7 @@ function CategoryManager({ onUpdate }) {
                     {category.id === transferCategoryId && <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{t('transfer')}</span>}
                   </div>
                   <div className="flex items-center space-x-3">
-                    <button onClick={() => setEditingCategory(category)} className="text-blue-600 hover:text-blue-800" title={t('edit')}><EditIcon /></button>
+                    <button onClick={() => setEditingCategory({ ...category, name: t(category.i18n_key) || category.name })} className="text-blue-600 hover:text-blue-800" title={t('edit')}><EditIcon /></button>
                     <button onClick={() => initiateDelete(category)} className="text-red-600 hover:text-red-800" title={t('delete')}><DeleteIcon /></button>
                   </div>
                 </>

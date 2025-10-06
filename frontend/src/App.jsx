@@ -44,7 +44,7 @@ function App() {
   const { 
     isLoading, activeUser, t, handleSetUser,
     accounts, categories, balanceReportData, balanceEvolutionData,
-    triggerRefresh, showOnboarding, completeOnboarding
+    triggerRefresh, showOnboarding, completeOnboarding, translations
   } = useAppContext();
 
   // --- Local State (for UI interaction and non-global data) ---
@@ -237,7 +237,7 @@ function App() {
   };
   
   // --- Render Logic ---
-  if (isLoading || !t('financeTracker')) {
+  if (isLoading || !translations) {
     return <div className="p-8 text-center">Loading TrakFin...</div>;
   }
 
@@ -264,6 +264,9 @@ function App() {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3"><Logo /><h1 className="text-4xl font-bold text-brand-blue tracking-tight">{t('financeTracker')}</h1></div>
             <div className="flex items-center space-x-4">
+              <span className="font-semibold text-gray-600">
+                {t('helloUser', {name: activeUser.first_name})}
+              </span>
               <LanguageSelector />
               <SettingsMenu 
                 onManageCategories={() => openSettings('categories')} 

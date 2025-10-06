@@ -185,5 +185,6 @@
   "category_shopping": "Shopping",
   "category_entertainment": "Entertainment",
   "category_internal_transfer": "Internal Transfers",
-  "back": "Back"
+  "back": "Back",
+  "helloUser": "Hello, {name}"
 }

@@ -17,7 +17,7 @@ function CategoryChart({ title, data }) {
       chartInstance.current = new Chart(ctx, {
         type: 'doughnut',
         data: {
-          labels: data.map(d => d.category),
+          labels: data.map(d => t(d.i18n_key) || d.name),
           datasets: [{
             // The chart visual is based on the absolute value
             data: data.map(d => Math.abs(d.total)),

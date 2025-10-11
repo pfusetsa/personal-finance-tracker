@@ -1,4 +1,3 @@
-import sqlite3
 from fastapi import FastAPI, HTTPException, Response, Query, Depends, Header
 from pydantic import BaseModel
 from typing import Optional, List
@@ -10,7 +9,19 @@ from .services import account_service, ai_service, transaction_service, category
 class AccountUpdate(BaseModel): name: str
 class CategoryUpdate(BaseModel): name: str
 class UserCreate(BaseModel): first_name: str; second_name: Optional[str] = None; surname: str; preferred_currency: str
-class TransactionCreate(BaseModel): date: date_type; description: str; amount: float; currency: str; is_recurrent: bool; account_id: int; category_id: int; recurrence_num: Optional[int] = None; recurrence_unit: Optional[str] = None; recurrence_end_date: Optional[date_type] = None
+class TransactionCreate(BaseModel): 
+    date: date_type
+    description: str
+    amount: float
+    currency: str
+    is_recurrent: bool
+    account_id: int
+    category_id: int
+    recurrence_num: Optional[int] = None
+    recurrence_unit: Optional[str] = None
+    recurrence_end_date: Optional[date_type] = None
+    recurrence_id: Optional[str] = None
+    update_pending_id: Optional[int] = None
 class TransferCreate(BaseModel): date: date_type; description: str; amount: float; from_account_id: int; to_account_id: int
 class TransferUpdate(BaseModel): date: date_type; amount: float; from_account_id: int; to_account_id: int
 class ChatQuery(BaseModel): query: str; history: Optional[List] = []
@@ -197,12 +208,10 @@ def get_all_transactions(
 def create_transaction(transaction: TransactionCreate, user_id: int = Depends(get_current_user_id)):
     try:
         transaction_dict = transaction.model_dump()
-        # --- FIX: Convert date objects to strings ---
         if transaction_dict.get('date'):
             transaction_dict['date'] = str(transaction_dict['date'])
         if transaction_dict.get('recurrence_end_date'):
             transaction_dict['recurrence_end_date'] = str(transaction_dict['recurrence_end_date'])
-        # --- END FIX ---
 
         new_transaction = transaction_service.create_transaction_with_recurrence(
             transaction_data=transaction_dict,
@@ -240,6 +249,16 @@ def update_transaction(transaction_id: int, transaction: TransactionCreate, user
 def delete_transaction(transaction_id: int, user_id: int = Depends(get_current_user_id)):
     transaction_service.delete_transaction(transaction_id, user_id)
     return Response(status_code=204)
+
+@app.get("/recurrences/", response_model=List[dict])
+def get_recurrence_series(user_id: int = Depends(get_current_user_id)):
+    """Gets a list of all existing recurrence series for the user."""
+    return transaction_service.get_all_recurrence_series(user_id)
+
+@app.get("/recurrences/{recurrence_id}/confirmed_count")
+def get_confirmed_count_in_series(recurrence_id: str, user_id: int = Depends(get_current_user_id)):
+    """Gets the count of confirmed transactions in a specific recurrence series."""
+    return transaction_service.get_confirmed_count_for_series(recurrence_id, user_id)
 
 
 # --- Transfers ------------------------------------------------------------------------------------------
@@ -288,6 +307,11 @@ def batch_process_transactions(request: BatchProcessRequest, user_id: int = Depe
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
+    
+@app.get("/recurrences/{recurrence_id}/pending", response_model=List[dict])
+def get_pending_transactions_in_series(recurrence_id: str, user_id: int = Depends(get_current_user_id)):
+    """Gets a list of all pending transactions for a specific recurrence series."""
+    return transaction_service.get_pending_transactions_for_series(recurrence_id, user_id)
 
 
 

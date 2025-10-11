@@ -36,10 +36,23 @@ def get_all_transactions(user_id: int, page: int, page_size: int, **filters):
     }
 
 def create_transaction_with_recurrence(transaction_data: dict, user_id: int):
-    """Creates a master transaction and, if it's recurrent, generates the full series."""
+    """
+    Handles all transaction creation logic: simple, claiming a pending one,
+    linking to a series, or creating a new series.
+    """
+    update_id = transaction_data.get('update_pending_id')
+    
+    # --- FLOW 1: User is "claiming" a pending transaction ---
+    if update_id:
+        updates = transaction_data.copy()
+        updates['status'] = 'confirmed'
+        updates.pop('update_pending_id', None)
+        crud.update_transaction(transaction_id=update_id, user_id=user_id, updates=updates)
+        return crud.get_transaction_by_id(update_id, user_id)
+
+    # --- FLOW 2: User is creating a new transaction (recurrent or not) ---
     is_recurrent = transaction_data.get('is_recurrent', False)
     
-    # Use .get() for safety, providing default None
     master_data = {
         "date": transaction_data.get('date'),
         "description": transaction_data.get('description'),
@@ -48,52 +61,62 @@ def create_transaction_with_recurrence(transaction_data: dict, user_id: int):
         "is_recurrent": is_recurrent,
         "account_id": transaction_data.get('account_id'),
         "category_id": transaction_data.get('category_id'),
-        "user_id": user_id
+        "user_id": user_id,
+        "status": 'confirmed',
+        "recurrence_id": transaction_data.get('recurrence_id')
     }
 
-    if not is_recurrent:
-        new_id = crud.add_transaction(**master_data)
-        return crud.get_transaction_by_id(new_id, user_id)
-
-    master_data['status'] = 'confirmed'
-    master_tx_id = crud.add_transaction(**master_data)
-    master_tx = crud.get_transaction_by_id(master_tx_id, user_id)
-
-    _generate_series_from_master(master_tx, user_id, transaction_data)
+    new_id = crud.add_transaction(**master_data)
     
-    return master_tx
+    is_new_series = is_recurrent and not transaction_data.get('recurrence_id')
+    if is_new_series:
+        master_tx = crud.get_transaction_by_id(new_id, user_id)
+        _generate_series_from_master(master_tx, user_id, transaction_data)
+    
+    return crud.get_transaction_by_id(new_id, user_id)
 
 def update_transaction_with_recurrence(transaction_id: int, transaction_data: dict, user_id: int):
-    """
-    Updates a transaction. Handles toggling recurrence on or off.
-    """
-    # Get the state of the transaction *before* the update
+    """Updates a transaction, handling all recurrence toggle logic based on user specification."""
     original_tx = crud.get_transaction_by_id(transaction_id, user_id)
     if not original_tx:
         raise ValueError("Transaction not found.")
 
     was_recurrent = original_tx.get('is_recurrent', False)
     is_now_recurrent = transaction_data.get('is_recurrent', False)
+    recurrence_id = original_tx.get('recurrence_id')
 
-    # --- Main Update Logic ---
-    # Clear out old recurrence fields if toggling off
+    # --- Rule: Toggling from Recurrent OFF ---
     if was_recurrent and not is_now_recurrent:
+        # Clear recurrence fields for this specific transaction
         transaction_data['recurrence_id'] = None
         transaction_data['recurrence_num'] = None
         transaction_data['recurrence_unit'] = None
         transaction_data['recurrence_end_date'] = None
         
-        # Delete the associated pending transactions
-        if original_tx.get('recurrence_id'):
-            crud.delete_pending_transactions_by_recurrence_id(original_tx['recurrence_id'], user_id)
+        if recurrence_id:
+            confirmed_count = crud.count_confirmed_transactions_in_series(recurrence_id, user_id)
+            if confirmed_count <= 1:
+                # This was the last confirmed one, so delete the pending series
+                crud.delete_pending_transactions_by_recurrence_id(recurrence_id, user_id)
 
     # Update the main transaction record in the database
     crud.update_transaction(transaction_id, user_id, transaction_data)
     
-    # --- Generate New Series if Toggling On ---
-    updated_tx = crud.get_transaction_by_id(transaction_id, user_id)
+    # --- Rule: Toggling from Recurrent ON (creating a new series) ---
     if is_now_recurrent and not was_recurrent:
+        updated_tx = crud.get_transaction_by_id(transaction_id, user_id)
+        # _generate_series_from_master will create a new recurrence_id and series
         _generate_series_from_master(updated_tx, user_id, transaction_data)
+    
+    # --- Rule: Updating an existing recurrent transaction rule ---
+    if was_recurrent and is_now_recurrent and recurrence_id:
+        # Check if it's the only confirmed transaction in the series
+        confirmed_count = crud.count_confirmed_transactions_in_series(recurrence_id, user_id)
+        if confirmed_count <= 1:
+             # Only one confirmed, so we are allowed to edit the rule and regenerate the series
+             crud.delete_pending_transactions_by_recurrence_id(recurrence_id, user_id)
+             updated_tx = crud.get_transaction_by_id(transaction_id, user_id)
+             _generate_series_from_master(updated_tx, user_id, transaction_data)
 
     return crud.get_transaction_by_id(transaction_id, user_id)
 
@@ -142,8 +165,32 @@ def _generate_series_from_master(master_tx: dict, user_id: int, recurrence_rules
         current_date += delta
 
 def delete_transaction(transaction_id: int, user_id: int):
-    """Handles the business logic for deleting a transaction."""
-    return crud.delete_transaction(transaction_id, user_id)
+    """Handles the business logic for deleting a transaction based on the new rules."""
+    original_tx = crud.get_transaction_by_id(transaction_id, user_id)
+    if not original_tx:
+        return True # Already deleted, so success
+
+    # Handle transfers first, as they are a special case
+    if original_tx.get('transfer_id'):
+        crud.delete_entire_transfer(original_tx['transfer_id'], user_id)
+        return True
+
+    recurrence_id = original_tx.get('recurrence_id')
+    if recurrence_id:
+        confirmed_count = crud.count_confirmed_transactions_in_series(recurrence_id, user_id)
+        
+        # If this is the last confirmed transaction in the series
+        if confirmed_count <= 1 and original_tx.get('status') == 'confirmed':
+            # Delete the entire series (this transaction + all pending)
+            crud.delete_entire_series(recurrence_id, user_id)
+        else:
+            # Just delete this single transaction, leave the rest of the series
+            crud.delete_transaction_by_id(transaction_id, user_id)
+    else:
+        # It's a simple non-recurrent, non-transfer transaction
+        crud.delete_transaction_by_id(transaction_id, user_id)
+        
+    return True
 
 # --- Transfers ---
 def get_transfer_details(transfer_id: str, user_id: int):
@@ -172,3 +219,23 @@ def update_transfer(transfer_id: str, date: date, amount: float, from_account_id
 def batch_process_transactions(instructions: list, user_id: int):
     """Processes a batch of instructions (e.g., delete, recategorize) for transactions."""
     return crud.process_batch_instructions(instructions, user_id)
+
+def get_all_recurrence_series(user_id: int):
+    """Retrieves all master recurrent transactions and formats the category data."""
+    series_list = crud.get_master_recurrent_transactions(user_id)
+    for series in series_list:
+        # Create the nested category object the frontend expects
+        series['category'] = {
+            'name': series.pop('category_name', None),
+            'i18n_key': series.pop('category_i18n_key', None)
+        }
+    return series_list
+
+def get_pending_transactions_for_series(recurrence_id: str, user_id: int):
+    """Retrieves all pending transactions for a given recurrence series."""
+    return crud.get_pending_transactions_by_recurrence_id(recurrence_id, user_id)
+
+def get_confirmed_count_for_series(recurrence_id: str, user_id: int):
+    """Gets the count of confirmed transactions in a specific recurrence series."""
+    count = crud.count_confirmed_transactions_in_series(recurrence_id, user_id)
+    return {"count": count}

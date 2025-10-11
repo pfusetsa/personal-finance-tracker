@@ -27,7 +27,6 @@ import Notification from './components/Notification';
 import OnboardingWizard from './components/OnboardingWizard.jsx';
 import Pagination from './components/Pagination';
 import RecurrentChart from './components/RecurrentChart.jsx';
-import RecurrenceModal from './components/RecurrenceModal.jsx';
 import SettingsMenu from './components/SettingsMenu.jsx';
 import Spinner from './components/Spinner';
 import TransactionFilters from './components/TransactionFilters';
@@ -72,13 +71,14 @@ function App() {
     amountRange: { min: '', max: '' },
     sort: { by: 'date', order: 'desc' },
   });
-  const [pendingTransaction, setPendingTransaction] = useState(null);
-  const [recurrenceModalIsOpen, setRecurrenceModalIsOpen] = useState(false);
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [incomeExpenseData, setIncomeExpenseData] = useState(null);
   const [categorySummaryData, setCategorySummaryData] = useState(null);
   const [recurrentData, setRecurrentData] = useState(null);
   const [onboardingStep, setOnboardingStep] = useState('welcome');
+
+  const [pendingTransaction, setPendingTransaction] = useState(null);
+  const [recurrenceModalIsOpen, setRecurrenceModalIsOpen] = useState(false);
   
   // --- Local useEffects ---
   useEffect(() => {
@@ -178,62 +178,38 @@ function App() {
       })
       .catch(error => { console.error('Failed to update transfer:', error); showNotification( t('transferUpdateError'), 'error'); });
   };
-  const handleTransactionSubmit = (formData, originalTransaction = null) => {
-    // Check if this is a new recurrent transaction or one being toggled to recurrent
-    const isNewRecurrence = formData.is_recurrent && !originalTransaction?.is_recurrent;
+  const handleTransactionSubmit = (submissionData, originalTransaction = null) => {
+    const isUpdate = !!originalTransaction;
 
-    if (isNewRecurrence) {
-      // If it's a new recurrence, hold the data and open the recurrence modal
-      setPendingTransaction({ ...formData, original: originalTransaction });
-      setActiveForm(null);
-      setEditingTransaction(null);
-      setRecurrenceModalIsOpen(true);
-    } else {
-      // Otherwise, save it directly (handles simple add, simple update, and toggling off recurrence)
-      const apiCall = originalTransaction
-        ? apiFetch(`/transactions/${originalTransaction.id}`, { method: 'PUT', body: JSON.stringify({ ...formData, currency: 'EUR' }) })
-        : apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify({ ...formData, currency: 'EUR' }) });
-      
-      apiCall.then(() => {
-        const message = originalTransaction ?  t('transactionUpdatedSuccess') :  t('transactionAddedSuccess');
-        handleTransactionSuccess(message);
-      }).catch(error => {
-        const message = originalTransaction ?  t('transactionUpdateError') :  t('transactionAddError');
-        console.error('Failed to save transaction:', error);
-        showNotification(message, 'error');
-      });
-    }
-  };
-  const handleFinalizeRecurrence = (recurrenceData) => {
-    const { original, ...transactionData } = pendingTransaction;
-    const finalTransactionData = {
-      ...transactionData,
-      ...recurrenceData,
-      currency: 'EUR'
-    };
-
-    const apiCall = original
-      ? apiFetch(`/transactions/${original.id}`, { method: 'PUT', body: JSON.stringify(finalTransactionData) })
-      : apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify(finalTransactionData) });
+    // The form now provides the complete data object, so we just send it.
+    const apiCall = isUpdate
+      ? apiFetch(`/transactions/${originalTransaction.id}`, { method: 'PUT', body: JSON.stringify(submissionData) })
+      : apiFetch(`/transactions/`, { method: 'POST', body: JSON.stringify(submissionData) });
     
-    apiCall.then((response) => {
-      const message = original ?  t('transactionUpdatedSuccess') :  t('transactionAddedSuccess');
-      handleDataUpdate(message);
-      setRecurrenceModalIsOpen(false);
-      setPendingTransaction(null);
+    apiCall.then(() => {
+      const message = isUpdate ? t('transactionUpdatedSuccess') : t('transactionAddedSuccess');
+      // handleTransactionSuccess already closes the modals and refreshes the data
+      handleTransactionSuccess(message);
     }).catch(error => {
-      console.error('Failed to save recurrent transaction:', error);
-      const message = original ?  t('transactionUpdateError') :  t('transactionAddError');
+      const message = isUpdate ? t('transactionUpdateError') : t('transactionAddError');
+      console.error('Failed to save transaction:', error);
       showNotification(message, 'error');
     });
   };
+
+  const handleFinalizeRecurrence = (recurrenceData) => {
+    const { original, ...transactionData } = pendingTransaction;
+    const finalData = { ...transactionData, ...recurrenceData };
+    
+    handleTransactionSubmit(finalData, original);
+
+    setRecurrenceModalIsOpen(false);
+    setPendingTransaction(null);
+  };
+
   const handleCancelRecurrence = () => {
     setRecurrenceModalIsOpen(false);
-    if (pendingTransaction.original) {
-      setEditingTransaction(pendingTransaction.original);
-    } else {
-      setActiveForm('transaction'); 
-    }
+    setActiveForm('transaction'); 
   };
   
   // --- Render Logic ---
@@ -281,8 +257,16 @@ function App() {
       {activeForm === 'transfer' && ( <Modal title={t('addTransfer')} onClose={() => setActiveForm(null)}><AddTransferForm onFormSubmit={handleAddTransfer} onCancel={() => setActiveForm(null)} /></Modal> )}
       {editingTransferId && ( <Modal title={t('editTransfer')} onClose={() => setEditingTransferId(null)}><EditTransferForm transferId={editingTransferId} onFormSubmit={handleUpdateTransfer} onCancel={() => setEditingTransferId(null)}/></Modal> )}
       {activeForm === 'transaction' && ( <Modal title={t('addTransaction')} onClose={() => { setActiveForm(null); setPendingTransaction(null); }}><AddTransactionForm onFormSubmit={handleTransactionSubmit} onCancel={() => { setActiveForm(null); setPendingTransaction(null); }} initialData={pendingTransaction && !pendingTransaction.original ? pendingTransaction : null}/></Modal> )}
-      {editingTransaction && ( <Modal title={t('editTransaction')} onClose={() => setEditingTransaction(null)}><EditTransactionForm transaction={editingTransaction} onFormSubmit={(transactionId, formData) => handleTransactionSubmit(formData, editingTransaction)} onCancel={() => setEditingTransaction(null)} /></Modal> )}
-      {recurrenceModalIsOpen && ( <Modal title={t('setRecurrence')} onClose={handleCancelRecurrence}><RecurrenceModal transaction={pendingTransaction} onSave={handleFinalizeRecurrence} onCancel={handleCancelRecurrence} /></Modal> )}
+      {editingTransaction && (
+        <Modal title={t('editTransaction')} onClose={() => setEditingTransaction(null)}>
+          <EditTransactionForm 
+            transaction={editingTransaction} 
+            onFormSubmit={(submissionData) => handleTransactionSubmit(submissionData, editingTransaction)} 
+            onCancel={() => setEditingTransaction(null)} 
+          />
+        </Modal>
+      )}
+      {recurrenceModalIsOpen && ( <Modal title={t('setRecurrence')} onClose={handleCancelRecurrence}><RecurrenceModal transaction={pendingTransaction} onSave={handleFinalizeRecurrence} onCancel={handleCancelRecurrence}/></Modal>)}
       {deletingTransaction && (<ConfirmationModal message={`${t('deleteConfirmMessage')} "${deletingTransaction.description}"?`} onConfirm={confirmDeleteTransaction} onCancel={() => setDeletingTransaction(null)} />)}
       {showChat && <Chat onCancel={() => setShowChat(false)} />}
       {showSettings && (

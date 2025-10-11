@@ -186,5 +186,15 @@
   "category_entertainment": "Entertainment",
   "category_internal_transfer": "Internal Transfers",
   "back": "Back",
-  "helloUser": "Hello, {name}"
+  "helloUser": "Hello, {name}",
+  "createNewSeries": "Create New Series",
+  "linkToExisting": "Link to Existing",
+  "selectAnExistingSeries": "Select an existing series",
+  "chooseASeries": "Choose a series",
+  "singleTransaction": "Single Transaction",
+  "recurrentTransaction": "Recurrent Transaction",
+  "addNewOccurrence": "Add a new one-time occurrence",
+  "claimPendingFor": "Claim pending for {date}",
+  "recurrenceDetails": "Recurrence",
+  "noExistingSeriesTooltip": "You have no existing recurrent series to link to."
 }

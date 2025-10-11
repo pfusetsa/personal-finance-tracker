@@ -77,11 +77,6 @@ def get_accounts(user_id):
         accounts = conn.execute("SELECT id, name FROM accounts WHERE user_id = ? ORDER BY name COLLATE NOCASE", (user_id,)).fetchall()
         return [dict(row) for row in accounts]
 
-def get_account_by_id(account_id, user_id):
-    with get_db_connection() as conn:
-        account = conn.execute("SELECT id, name FROM accounts WHERE id = ? AND user_id = ?", (account_id, user_id)).fetchone()
-        return dict(account) if account else None
-
 def update_account(account_id, name, user_id):
     with get_db_connection() as conn:
         conn.execute("UPDATE accounts SET name = ? WHERE id = ? AND user_id = ?", (name, account_id, user_id))
@@ -129,11 +124,6 @@ def get_categories(user_id):
             (user_id,)
         ).fetchall()
         return [dict(row) for row in categories]
-
-def get_category_by_name(category_name, user_id):
-    with get_db_connection() as conn:
-        category = conn.execute("SELECT id, name FROM categories WHERE name = ? AND user_id = ?", (category_name, user_id)).fetchone()
-        return dict(category) if category else None
 
 def update_category(category_id: int, name: str, user_id: int, i18n_key: str | None):
     with get_db_connection() as conn:
@@ -210,38 +200,32 @@ def update_transaction(transaction_id: int, user_id: int, updates: dict):
         conn.commit()
     return True
 
-def delete_transaction(transaction_id, user_id):
+def count_confirmed_transactions_in_series(recurrence_id: str, user_id: int):
+    """Counts the number of 'confirmed' transactions in a given recurrence series."""
     with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT transfer_id, recurrence_id FROM transactions WHERE id = ? AND user_id = ?", (transaction_id, user_id))
-        result = cursor.fetchone()
-        
-        if not result:
-            return True # Transaction doesn't exist or was already deleted
-
-        transfer_id = result['transfer_id']
-        recurrence_id = result['recurrence_id']
-
-        if recurrence_id:
-            # First, delete all 'pending' transactions in the series
-            conn.execute(
-                "DELETE FROM transactions WHERE recurrence_id = ? AND user_id = ? AND status = 'pending'",
-                (recurrence_id, user_id)
-            )
-            # Then, delete the specific transaction the user clicked on (if it wasn't already pending)
-            conn.execute(
-                "DELETE FROM transactions WHERE id = ? AND user_id = ?",
-                (transaction_id, user_id)
-            )
-        elif transfer_id:
-            # If it's a transfer, delete both sides
-            conn.execute("DELETE FROM transactions WHERE transfer_id = ? AND user_id = ?", (transfer_id, user_id))
-        else:
-            # Otherwise, just delete the single transaction
-            conn.execute("DELETE FROM transactions WHERE id = ? AND user_id = ?", (transaction_id, user_id))
-        
+        count = conn.execute(
+            "SELECT COUNT(id) FROM transactions WHERE recurrence_id = ? AND user_id = ? AND status = 'confirmed'",
+            (recurrence_id, user_id)
+        ).fetchone()[0]
+        return count
+    
+def delete_transaction_by_id(transaction_id: int, user_id: int):
+    """Deletes a single transaction by its ID, without affecting related transactions."""
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM transactions WHERE id = ? AND user_id = ?", (transaction_id, user_id))
         conn.commit()
-        return True
+
+def delete_entire_series(recurrence_id: str, user_id: int):
+    """Deletes all transactions (confirmed and pending) in a recurrence series."""
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM transactions WHERE recurrence_id = ? AND user_id = ?", (recurrence_id, user_id))
+        conn.commit()
+
+def delete_entire_transfer(transfer_id: str, user_id: int):
+    """Deletes both sides of a transfer."""
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM transactions WHERE transfer_id = ? AND user_id = ?", (transfer_id, user_id))
+        conn.commit()
     
 def delete_pending_transactions_by_recurrence_id(recurrence_id: str, user_id: int):
     """Deletes all 'pending' transactions belonging to a specific recurrence series."""
@@ -312,9 +296,47 @@ def get_transaction_by_id(transaction_id: int, user_id: int):
     with get_db_connection() as conn:
         transaction = conn.execute("SELECT * FROM transactions WHERE id = ? AND user_id = ?", (transaction_id, user_id)).fetchone()
         return dict(transaction) if transaction else None
+    
+def get_master_recurrent_transactions(user_id: int):
+    """Fetches the first 'confirmed' transaction for each recurrence series, including category details."""
+    with get_db_connection() as conn:
+        query = """
+            SELECT 
+                t.*,
+                c.name as category_name,
+                c.i18n_key as category_i18n_key
+            FROM transactions t
+            JOIN categories c ON t.category_id = c.id
+            INNER JOIN (
+                SELECT recurrence_id, MIN(id) as min_id
+                FROM transactions
+                WHERE recurrence_id IS NOT NULL AND user_id = ? AND status = 'confirmed'
+                GROUP BY recurrence_id
+            ) AS m ON t.recurrence_id = m.recurrence_id AND t.id = m.min_id
+            WHERE t.user_id = ?
+            ORDER BY t.date DESC
+        """
+        masters = conn.execute(query, (user_id, user_id)).fetchall()
+        return [dict(row) for row in masters]
+    
+def get_pending_transactions_by_recurrence_id(recurrence_id: str, user_id: int):
+    """Fetches all 'pending' transactions for a specific recurrence series, ordered by date."""
+    with get_db_connection() as conn:
+        query = "SELECT * FROM transactions WHERE recurrence_id = ? AND user_id = ? AND status = 'pending' ORDER BY date ASC"
+        pending_txs = conn.execute(query, (recurrence_id, user_id)).fetchall()
+        return [dict(row) for row in pending_txs]
+    
+def count_confirmed_transactions_in_series(recurrence_id: str, user_id: int):
+    """Counts the number of 'confirmed' transactions in a given recurrence series."""
+    with get_db_connection() as conn:
+        count = conn.execute(
+            "SELECT COUNT(id) FROM transactions WHERE recurrence_id = ? AND user_id = ? AND status = 'confirmed'",
+            (recurrence_id, user_id)
+        ).fetchone()[0]
+        return count
 
 
-# --- Trasnfer ------------------------------------------------------------------------------------------------------    
+# --- Transfer ------------------------------------------------------------------------------------------------------    
 def get_transfer(transfer_id: str, user_id: int):
     with get_db_connection() as conn:
         transfer_rows = conn.execute("SELECT * FROM transactions WHERE transfer_id = ? AND user_id = ? ORDER BY amount DESC", (transfer_id, user_id)).fetchall()
@@ -421,7 +443,7 @@ def get_balance_evolution_report(user_id):
 def get_category_summary_for_chart(user_id, start_date: str, end_date: str, transaction_type: str = 'expense'):
     with get_db_connection() as conn:
         base_query = """
-            SELECT c.name as category, SUM(t.amount) as total
+            SELECT c.name, c.i18n_key, SUM(t.amount) as total
             FROM transactions t INNER JOIN categories c ON t.category_id = c.id
         """
         where_clauses = ["t.user_id = ?", "t.status = 'confirmed'"]
@@ -438,7 +460,7 @@ def get_category_summary_for_chart(user_id, start_date: str, end_date: str, tran
         elif transaction_type == 'expense': where_clauses.append("t.amount < 0")
 
         where_statement = "WHERE " + " AND ".join(where_clauses)
-        group_by_statement = " GROUP BY c.name HAVING total != 0 ORDER BY ABS(total) DESC"
+        group_by_statement = " GROUP BY c.name, c.i18n_key HAVING total != 0 ORDER BY ABS(total) DESC"
         
         final_query = base_query + where_statement + group_by_statement
         df = pd.read_sql_query(final_query, conn, params=params)

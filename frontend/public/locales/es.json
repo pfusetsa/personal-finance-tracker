@@ -184,5 +184,15 @@
   "category_entertainment": "Ocio",
   "category_internal_transfer": "Transferencias Internas",
   "back": "Atrás",
-  "helloUser": "Hola, {name}"
+  "helloUser": "Hola, {name}",
+  "createNewSeries": "Crear Nueva Serie",
+  "linkToExisting": "Vincular a Existente",
+  "selectAnExistingSeries": "Selecciona una serie existente",
+  "chooseASeries": "Elige una serie",
+  "singleTransaction": "Transacción Única",
+  "recurrentTransaction": "Transacción Recurrente",
+  "addNewOccurrence": "Añadir una nueva ocurrencia",
+  "claimPendingFor": "Confirmar pendiente del {date}",
+  "recurrenceDetails": "Recurrencia",
+  "noExistingSeriesTooltip": "No tienes series recurrentes existentes para vincular."
 }

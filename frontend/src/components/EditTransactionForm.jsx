@@ -2,8 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { apiFetch } from '../apiClient';
 import DatePicker from './DatePicker';
-import EditIcon from './icons/EditIcon';
-import DeleteIcon from './icons/DeleteIcon';
 
 function EditTransactionForm({ transaction, onFormSubmit, onCancel }) {
   const { accounts, categories, t, language } = useAppContext();
@@ -43,6 +41,13 @@ function EditTransactionForm({ transaction, onFormSubmit, onCancel }) {
           if (data.count > 1) { setCanEditRule(false); }
         });
     }
+
+    if (transaction.status === 'pending' && transaction.recurrence_id) {
+      setIsRecurrent(true);
+      setRecurrenceMode('link');
+      setSelectedSeriesId(transaction.recurrence_id);
+      setSelectedPendingId(transaction.id);
+    }
   }, [transaction]);
 
   useEffect(() => {
@@ -62,8 +67,9 @@ function EditTransactionForm({ transaction, onFormSubmit, onCancel }) {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
-  const handleDateChange = (date, field) => {
-    setFormData(prev => ({ ...prev, [field]: date.toISOString().split('T')[0] }));
+  const handleDateChange = (date) => {
+    const newDate = date ? date.toISOString().split('T')[0] : '';
+    setFormData(prev => ({ ...prev, date: newDate }));
   };
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -81,16 +87,20 @@ function EditTransactionForm({ transaction, onFormSubmit, onCancel }) {
       category_id: parseInt(formData.category_id, 10),
     };
 
-    if (isRecurrent) {
-      if (recurrenceMode === 'new') {
-        submissionData.recurrence_num = parseInt(formData.recurrence_num, 10);
-        submissionData.recurrence_unit = formData.recurrence_unit;
-        submissionData.recurrence_end_date = formData.recurrence_end_date || null;
-      }
-      if (recurrenceMode === 'link') {
-        submissionData.recurrence_id = selectedSeriesId;
-      }
+    if (transaction.status === 'pending') {
+      submissionData.status = 'confirmed';
     }
+
+    if (isRecurrent && recurrenceMode === 'new' && canEditRule) {
+      submissionData.recurrence_num = parseInt(formData.recurrence_num, 10);
+      submissionData.recurrence_unit = formData.recurrence_unit;
+      submissionData.recurrence_end_date = formData.recurrence_end_date || null;
+    }
+
+    if (isRecurrent && recurrenceMode === 'link') {
+      submissionData.recurrence_id = selectedSeriesId;
+    }
+
     onFormSubmit(submissionData);
   };
   const numberOptions = useMemo(() => {

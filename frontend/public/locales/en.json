@@ -196,5 +196,6 @@
   "addNewOccurrence": "Add a new one-time occurrence",
   "claimPendingFor": "Claim pending for {date}",
   "recurrenceDetails": "Recurrence",
-  "noExistingSeriesTooltip": "You have no existing recurrent series to link to."
+  "noExistingSeriesTooltip": "You have no existing recurrent series to link to.",
+  "paymentsToConfirm": "Payments to Confirm"
 }

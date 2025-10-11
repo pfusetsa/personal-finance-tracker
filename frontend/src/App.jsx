@@ -26,10 +26,9 @@ import Modal from './components/Modal.jsx';
 import Notification from './components/Notification';
 import OnboardingWizard from './components/OnboardingWizard.jsx';
 import Pagination from './components/Pagination';
+import PendingConfirmation from './components/PendingConfirmation.jsx';
 import RecurrentChart from './components/RecurrentChart.jsx';
 import SettingsMenu from './components/SettingsMenu.jsx';
-import Spinner from './components/Spinner';
-import TransactionFilters from './components/TransactionFilters';
 import TransactionList from './components/TransactionList';
 import TransactionListSkeleton from './components/skeletons/TransactionListSkeleton.jsx';
 import TransferCategorySelector from './components/TransferCategorySelector.jsx';
@@ -281,6 +280,7 @@ function App() {
       )}
       
       <main>
+        <PendingConfirmation onConfirm={setEditingTransaction} />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-1">{balanceReportData ? <BalanceReport report={balanceReportData}/> : <BalanceReportSkeleton />}</div>
           <div className="lg:col-span-2"><ChartCard title={t('balanceEvolution')} isOpen={true}>{balanceEvolutionData ? <BalanceEvolutionChart data={balanceEvolutionData} /> : <ChartSkeleton />}</ChartCard></div>

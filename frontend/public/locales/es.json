@@ -194,5 +194,6 @@
   "addNewOccurrence": "Añadir una nueva ocurrencia",
   "claimPendingFor": "Confirmar pendiente del {date}",
   "recurrenceDetails": "Recurrencia",
-  "noExistingSeriesTooltip": "No tienes series recurrentes existentes para vincular."
+  "noExistingSeriesTooltip": "No tienes series recurrentes existentes para vincular.",
+  "paymentsToConfirm": "Pagos por Confirmar"
 }

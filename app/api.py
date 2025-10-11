@@ -1,3 +1,4 @@
+import traceback
 from fastapi import FastAPI, HTTPException, Response, Query, Depends, Header
 from pydantic import BaseModel
 from typing import Optional, List
@@ -221,7 +222,9 @@ def create_transaction(transaction: TransactionCreate, user_id: int = Depends(ge
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print("--- An unexpected error occurred ---")
+        traceback.print_exc() # This will print the full, detailed traceback
+        print("------------------------------------")
         raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 @app.put("/transactions/{transaction_id}")
@@ -242,7 +245,9 @@ def update_transaction(transaction_id: int, transaction: TransactionCreate, user
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print("--- An unexpected error occurred ---")
+        traceback.print_exc() # This will print the full, detailed traceback
+        print("------------------------------------")
         raise HTTPException(status_code=500, detail="An internal server error occurred.")
     
 @app.delete("/transactions/{transaction_id}", status_code=204)
@@ -260,6 +265,11 @@ def get_confirmed_count_in_series(recurrence_id: str, user_id: int = Depends(get
     """Gets the count of confirmed transactions in a specific recurrence series."""
     return transaction_service.get_confirmed_count_for_series(recurrence_id, user_id)
 
+@app.get("/transactions/pending", response_model=List[dict])
+def get_due_transactions(user_id: int = Depends(get_current_user_id)):
+    """Gets a list of all due pending transactions for the user."""
+    return transaction_service.get_due_pending_transactions(user_id)
+
 
 # --- Transfers ------------------------------------------------------------------------------------------
 @app.post("/transfers/")
@@ -274,7 +284,10 @@ def create_transfer(transfer: TransferCreate, user_id: int = Depends(get_current
             user_id=user_id
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        print("--- An unexpected error occurred ---")
+        traceback.print_exc() # This will print the full, detailed traceback
+        print("------------------------------------")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 @app.get("/transfers/{transfer_id}")
 def get_transfer_details(transfer_id: str, user_id: int = Depends(get_current_user_id)):
@@ -296,7 +309,10 @@ def update_transfer(transfer_id: str, transfer: TransferUpdate, user_id: int = D
         )
         return {"status": "success", "message": "Transfer updated."}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        print("--- An unexpected error occurred ---")
+        traceback.print_exc() # This will print the full, detailed traceback
+        print("------------------------------------")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 @app.post("/transactions/batch-process")
 def batch_process_transactions(request: BatchProcessRequest, user_id: int = Depends(get_current_user_id)):
@@ -306,7 +322,10 @@ def batch_process_transactions(request: BatchProcessRequest, user_id: int = Depe
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
+        print("--- An unexpected error occurred ---")
+        traceback.print_exc() # This will print the full, detailed traceback
+        print("------------------------------------")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
     
 @app.get("/recurrences/{recurrence_id}/pending", response_model=List[dict])
 def get_pending_transactions_in_series(recurrence_id: str, user_id: int = Depends(get_current_user_id)):
@@ -333,7 +352,10 @@ def update_transfer_category_setting(setting: SettingUpdate, user_id: int = Depe
             migration_strategy=setting.migration_strategy
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        print("--- An unexpected error occurred ---")
+        traceback.print_exc() # This will print the full, detailed traceback
+        print("------------------------------------")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 
 # --- AI Chat ------------------------------------------------------------------------------------------
@@ -343,4 +365,7 @@ async def handle_chat(query: ChatQuery, user_id: int = Depends(get_current_user_
         response_text = await ai_service.execute_natural_language_query(query.query, query.history, user_id)
         return {"response": response_text}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
+        print("--- An unexpected error occurred ---")
+        traceback.print_exc() # This will print the full, detailed traceback
+        print("------------------------------------")
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")

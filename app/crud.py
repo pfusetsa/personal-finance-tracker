@@ -243,7 +243,7 @@ def get_all_transactions(
 ):
     with get_db_connection() as conn:
         base_query = "FROM transactions t JOIN categories c ON t.category_id = c.id JOIN accounts a ON t.account_id = a.id"
-        where_clauses = ["t.user_id = ?", "(t.status = 'confirmed' OR t.date <= date('now'))"]
+        where_clauses = ["t.user_id = ?", "t.status = 'confirmed'"]
         params = [user_id]
         
         if account_ids:
@@ -334,6 +334,19 @@ def count_confirmed_transactions_in_series(recurrence_id: str, user_id: int):
             (recurrence_id, user_id)
         ).fetchone()[0]
         return count
+    
+def get_due_pending_transactions(user_id: int):
+    """Fetches all 'pending' transactions with a date on or before today, including category details."""
+    with get_db_connection() as conn:
+        query = """
+            SELECT t.*, c.name as category_name, c.i18n_key as category_i18n_key
+            FROM transactions t
+            JOIN categories c ON t.category_id = c.id
+            WHERE t.user_id = ? AND t.status = 'pending' AND t.date <= date('now', 'localtime')
+            ORDER BY t.date ASC
+        """
+        transactions = conn.execute(query, (user_id,)).fetchall()
+        return [dict(row) for row in transactions]
 
 
 # --- Transfer ------------------------------------------------------------------------------------------------------    

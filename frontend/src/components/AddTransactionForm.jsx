@@ -79,8 +79,9 @@ function AddTransactionForm({ onFormSubmit, onCancel, initialData }) {
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleDateChange = (date, field) => {
-    setFormData(prev => ({ ...prev, [field]: date.toISOString().split('T')[0] }));
+  const handleDateChange = (date) => {
+    const newDate = date ? date.toISOString().split('T')[0] : '';
+    setFormData(prev => ({ ...prev, date: newDate }));
   };
 
   const handleSubmit = (e) => {

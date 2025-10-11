@@ -23,6 +23,7 @@ function DatePicker({ selectedDate, onChange, placeholderText }) {
       dateFormat="dd/MM/yyyy"
       className="w-full p-2 border rounded"
       placeholderText={placeholderText}
+      minDate={null} // <-- Add this line
     />
   );
 }
